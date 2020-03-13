@@ -80,6 +80,69 @@ object AppRepository {
         this.sharedPreferencesRepository = sharedPreferencesRepository
     }
 
+    private val lectureUpdateListeners = mutableSetOf<LectureUpdateListener>()
+
+    /**
+     * Listens for any updates to the content of a specific [Lecture].
+     * It is identified by its lecture ID, see [getLectureId].
+     */
+    interface LectureUpdateListener {
+
+        /**
+         * Returns the identifier of [Lecture] .
+         */
+        fun getLectureId(): String
+
+        /**
+         * To be invoked when the content of a [Lecture] has been updated.
+         */
+        fun onLectureUpdate(lecture: Lecture)
+
+        /**
+         * To be invoked when a [Lecture] has been canceled.
+         */
+        fun onLectureCanceled()
+    }
+
+    /**
+     * Adds the given [LectureUpdateListener][listener] to an internal collection.
+     */
+    fun addLectureUpdateListener(listener: LectureUpdateListener) {
+        if (lectureUpdateListeners.add(listener)) {
+            notifyInitiallyLectureUpdateListener(listener)
+        }
+    }
+
+    /**
+     * Removes the given [LectureUpdateListener][listener] from an internal collection.
+     */
+    fun removeLectureUpdateListener(listener: LectureUpdateListener) {
+        lectureUpdateListeners.remove(listener)
+    }
+
+    /**
+     * To be invoked once when the given [listener] is added to the [collection][lectureUpdateListeners].
+     */
+    private fun notifyInitiallyLectureUpdateListener(listener: LectureUpdateListener) {
+        lectureUpdateListeners.single { it == listener }
+                .onLectureUpdate(readLectureByLectureId(listener.getLectureId()))
+    }
+
+    /**
+     * To be invoked every time when any [Lecture] changes.
+     * Only listeners which are associated with a lecture is notified.
+     */
+    private fun notifyLectureUpdateListeners(lectures: List<Lecture>) {
+        lectureUpdateListeners.forEach { listener ->
+            val found = lectures.singleOrNull { lecture -> lecture.lectureId == listener.getLectureId() }
+            if (found == null || found.changedIsCanceled) {
+                listener.onLectureCanceled()
+            } else {
+                listener.onLectureUpdate(found)
+            }
+        }
+    }
+
     private fun loadingFailed(@Suppress("SameParameterValue") requestIdentifier: String) {
         parentJobs.remove(requestIdentifier)
     }
@@ -312,13 +375,14 @@ object AppRepository {
         val highlightDatabaseModel = lecture.toHighlightDatabaseModel()
         val values = highlightDatabaseModel.toContentValues()
         highlightsDatabaseRepository.update(values, lecture.lectureId)
+        notifyLectureUpdateListeners(listOf(lecture))
     }
 
     fun deleteAllHighlights() {
         highlightsDatabaseRepository.deleteAll()
     }
 
-    fun readLectureByLectureId(lectureId: String): Lecture {
+    private fun readLectureByLectureId(lectureId: String): Lecture {
         val lecture = lecturesDatabaseRepository.queryLectureByLectureId(lectureId).toLectureAppModel()
 
         val highlight = highlightsDatabaseRepository.queryByEventId(lectureId.toInt())
@@ -373,6 +437,7 @@ object AppRepository {
         val lecturesDatabaseModel = lectures.toLecturesDatabaseModel()
         val list = lecturesDatabaseModel.map { it.toContentValues() }
         lecturesDatabaseRepository.insert(list)
+        notifyLectureUpdateListeners(lectures)
     }
 
     fun readMeta() =
