@@ -80,6 +80,52 @@ object AppRepository {
         this.sharedPreferencesRepository = sharedPreferencesRepository
     }
 
+    private val lecturesChangeListeners = mutableSetOf<LecturesChangeListener>()
+
+    /**
+     * Listens for lecture changes.
+     */
+    interface LecturesChangeListener {
+
+        /**
+         * To be invoked when lectures changes are detected.
+         */
+        fun onLecturesChange(lectures: MutableList<Lecture>)
+    }
+
+    /**
+     * Adds the given [LecturesChangeListener][listener] to an internal collection.
+     */
+    fun addLecturesChangeListener(listener: LecturesChangeListener) {
+        if (lecturesChangeListeners.add(listener)) {
+            notifyInitiallyLecturesChangeListener(listener)
+        }
+    }
+
+    /**
+     * Removes the given [LecturesChangeListener][listener] from an internal collection.
+     */
+    fun removeLecturesChangeListener(listener: LecturesChangeListener) {
+        lecturesChangeListeners.remove(listener)
+    }
+
+    /**
+     * To be invoked once when the given [listener] is added to the [collection][lecturesChangeListeners].
+     */
+    private fun notifyInitiallyLecturesChangeListener(listener: LecturesChangeListener) {
+        lecturesChangeListeners.single { it == listener }
+                .onLecturesChange(loadChangedLectures().toMutableList())
+    }
+
+    /**
+     * To be invoked every time when lectures changes are detected.
+     */
+    private fun notifyLecturesChangeListeners() {
+        lecturesChangeListeners.forEach {
+            it.onLecturesChange(loadChangedLectures().toMutableList())
+        }
+    }
+
     private val lectureUpdateListeners = mutableSetOf<LectureUpdateListener>()
 
     /**
@@ -376,6 +422,7 @@ object AppRepository {
         val values = highlightDatabaseModel.toContentValues()
         highlightsDatabaseRepository.update(values, lecture.lectureId)
         notifyLectureUpdateListeners(listOf(lecture))
+        notifyLecturesChangeListeners()
     }
 
     fun deleteAllHighlights() {
@@ -438,6 +485,7 @@ object AppRepository {
         val list = lecturesDatabaseModel.map { it.toContentValues() }
         lecturesDatabaseRepository.insert(list)
         notifyLectureUpdateListeners(lectures)
+        notifyLecturesChangeListeners()
     }
 
     fun readMeta() =

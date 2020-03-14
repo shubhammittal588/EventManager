@@ -2,6 +2,7 @@ package nerd.tuxmobil.fahrplan.congress.changes;
 
 import android.content.Context;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
@@ -11,12 +12,17 @@ import android.widget.ListView;
 
 import java.util.List;
 
+import kotlin.Unit;
 import nerd.tuxmobil.fahrplan.congress.MyApp;
 import nerd.tuxmobil.fahrplan.congress.R;
 import nerd.tuxmobil.fahrplan.congress.base.AbstractListFragment;
+import nerd.tuxmobil.fahrplan.congress.commons.ObservableType;
 import nerd.tuxmobil.fahrplan.congress.contract.BundleKeys;
 import nerd.tuxmobil.fahrplan.congress.models.Lecture;
 import nerd.tuxmobil.fahrplan.congress.models.Meta;
+import nerd.tuxmobil.fahrplan.congress.repositories.AppRepository;
+
+import static java.util.Collections.emptyList;
 
 
 /**
@@ -33,9 +39,12 @@ public class ChangeListFragment extends AbstractListFragment {
     private static final String LOG_TAG = "ChangeListFragment";
     public static final String FRAGMENT_TAG = "changes";
     private OnLectureListClick mListener;
-    private List<Lecture> changesList;
+    private ObservableType<List<Lecture>> observableChanges = new ObservableType<>();
+    private AppRepository.LecturesChangeListener lecturesChangeListener =
+            lectures -> observableChanges.setValue(lectures);
     private boolean sidePane = false;
     private boolean requiresScheduleReload = false;
+
 
     /**
      * The fragment's ListView/GridView.
@@ -75,10 +84,8 @@ public class ChangeListFragment extends AbstractListFragment {
         }
 
         Context context = requireContext();
-        changesList = appRepository.loadChangedLectures();
         Meta meta = appRepository.readMeta();
-        mAdapter = new LectureChangesArrayAdapter(context, changesList, meta.getNumDays());
-        MyApp.LogDebug(LOG_TAG, "onCreate, " + changesList.size() + " changes");
+        mAdapter = new LectureChangesArrayAdapter(context, emptyList(), meta.getNumDays());
     }
 
     @Override
@@ -110,8 +117,24 @@ public class ChangeListFragment extends AbstractListFragment {
     }
 
     @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        appRepository.addLecturesChangeListener(lecturesChangeListener);
+    }
+
+    @Override
+    public void onDestroyView() {
+        appRepository.removeLecturesChangeListener(lecturesChangeListener);
+        super.onDestroyView();
+    }
+
+    @Override
     public void onAttach(Context context) {
         super.onAttach(context);
+        observableChanges.addObserver(() -> {
+            updateAdapter();
+            return Unit.INSTANCE;
+        });
         try {
             mListener = (OnLectureListClick) context;
         } catch (ClassCastException e) {
@@ -123,16 +146,20 @@ public class ChangeListFragment extends AbstractListFragment {
     @Override
     public void onDetach() {
         super.onDetach();
+        observableChanges.deleteObservers();
         mListener = null;
     }
 
     public void onRefresh() {
-        List<Lecture> updatedChanges = appRepository.loadChangedLectures();
-        if (changesList != null) {
-            changesList.clear();
-            changesList.addAll(updatedChanges);
-        }
-        mAdapter.notifyDataSetChanged();
+        // TODO Remove once MainActivity#onParseDone and MainActivity#onLoadShiftsDone are migrated.
+    }
+
+    public void updateAdapter() {
+        Context context = requireContext();
+        List<Lecture> changes = observableChanges.getValue();
+        Meta meta = appRepository.readMeta();
+        mAdapter = new LectureChangesArrayAdapter(context, changes, meta.getNumDays());
+        mListView.setAdapter(mAdapter);
     }
 
     @Override
@@ -142,7 +169,7 @@ public class ChangeListFragment extends AbstractListFragment {
             // Notify the active callbacks interface (the activity, if the
             // fragment is attached to one) that an item has been selected.
             position--;
-            Lecture clicked = changesList.get(mAdapter.getItemIndex(position));
+            Lecture clicked = observableChanges.getValue().get(mAdapter.getItemIndex(position));
             if (clicked.changedIsCanceled) return;
             mListener.onLectureListClick(clicked, requiresScheduleReload);
         }

@@ -155,6 +155,48 @@ public class Lecture {
         return result;
     }
 
+    @Override
+    public String toString() {
+        return "Lecture{" +
+                "title='" + title + '\'' +
+                ", subtitle='" + subtitle + '\'' +
+                ", day=" + day +
+                ", room='" + room + '\'' +
+                ", slug='" + slug + '\'' +
+                ", url='" + url + '\'' +
+                ", startTime=" + startTime +
+                ", duration=" + duration +
+                ", speakers='" + speakers + '\'' +
+                ", track='" + track + '\'' +
+                ", lectureId='" + lectureId + '\'' +
+                ", type='" + type + '\'' +
+                ", lang='" + lang + '\'' +
+                ", abstractt='" + abstractt + '\'' +
+                ", description='" + description + '\'' +
+                ", relStartTime=" + relStartTime +
+                ", links='" + links + '\'' +
+                ", date='" + date + '\'' +
+                ", highlight=" + highlight +
+                ", hasAlarm=" + hasAlarm +
+                ", dateUTC=" + dateUTC +
+                ", roomIndex=" + roomIndex +
+                ", recordingLicense='" + recordingLicense + '\'' +
+                ", recordingOptOut=" + recordingOptOut +
+                ", changedTitle=" + changedTitle +
+                ", changedSubtitle=" + changedSubtitle +
+                ", changedRoom=" + changedRoom +
+                ", changedDay=" + changedDay +
+                ", changedTime=" + changedTime +
+                ", changedDuration=" + changedDuration +
+                ", changedSpeakers=" + changedSpeakers +
+                ", changedRecordingOptOut=" + changedRecordingOptOut +
+                ", changedLanguage=" + changedLanguage +
+                ", changedTrack=" + changedTrack +
+                ", changedIsNew=" + changedIsNew +
+                ", changedIsCanceled=" + changedIsCanceled +
+                '}';
+    }
+
     public void cancel() {
         changedIsCanceled = true;
         changedTitle = false;

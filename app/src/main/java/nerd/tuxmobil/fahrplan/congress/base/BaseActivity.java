@@ -25,18 +25,18 @@ public abstract class BaseActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        connectivityObserver = new ConnectivityObserver(this, () -> {
-            Log.d(getClass().getSimpleName(), "Network is available.");
-            startUpdateService();
-            return Unit.INSTANCE;
-        });
-        connectivityObserver.start();
+//        connectivityObserver = new ConnectivityObserver(this, () -> {
+//            Log.d(getClass().getSimpleName(), "Network is available.");
+//            startUpdateService();
+//            return Unit.INSTANCE;
+//        });
+//        connectivityObserver.start();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        connectivityObserver.stop();
+//        connectivityObserver.stop();
     }
 
     @Override
