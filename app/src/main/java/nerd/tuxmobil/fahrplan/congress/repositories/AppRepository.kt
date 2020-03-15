@@ -271,6 +271,18 @@ object AppRepository {
                 }
             }
         }
+        for (lecture in lectures) {
+            lecture.hasAlarm = false
+        }
+        val alarms = readAlarms()
+        for (alarm in alarms) {
+            logging.d(javaClass.name, "A: $alarm")
+            for (lecture in lectures) {
+                if (lecture.lectureId == alarm.eventId) {
+                    lecture.hasAlarm = true
+                }
+            }
+        }
         return lectures.toList()
     }
 

@@ -777,6 +777,7 @@ public class FahrplanFragment extends Fragment implements OnClickListener {
             return;
         }
 
+        // TODO Remove if already done by AppRepository#loadLecturesForDayIndex.
         for (Lecture lecture : MyApp.lectureList) {
             lecture.hasAlarm = false;
         }
