@@ -20,20 +20,27 @@ import android.widget.AbsListView;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import info.metadude.android.eventfahrplan.commons.logging.Logging;
 import info.metadude.android.eventfahrplan.commons.temporal.Moment;
+import kotlin.Unit;
 import nerd.tuxmobil.fahrplan.congress.MyApp;
 import nerd.tuxmobil.fahrplan.congress.R;
 import nerd.tuxmobil.fahrplan.congress.base.AbstractListFragment;
+import nerd.tuxmobil.fahrplan.congress.commons.ObservableType;
 import nerd.tuxmobil.fahrplan.congress.contract.BundleKeys;
 import nerd.tuxmobil.fahrplan.congress.models.Lecture;
 import nerd.tuxmobil.fahrplan.congress.models.Meta;
+import nerd.tuxmobil.fahrplan.congress.repositories.AppRepository;
 import nerd.tuxmobil.fahrplan.congress.schedule.MainActivity;
 import nerd.tuxmobil.fahrplan.congress.sharing.LectureSharer;
 import nerd.tuxmobil.fahrplan.congress.sharing.SimpleLectureFormat;
 import nerd.tuxmobil.fahrplan.congress.utils.ActivityHelper;
 import nerd.tuxmobil.fahrplan.congress.utils.ConfirmationDialog;
+
+import static java.util.Collections.emptyList;
 
 
 /**
@@ -51,7 +58,10 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
     private static final String LOG_TAG = "StarredListFragment";
     public static final String FRAGMENT_TAG = "starred";
     private OnLectureListClick mListener;
-    private List<Lecture> starredList;
+    private ObservableType<List<? extends Lecture>> observableStarredLectures =
+            new ObservableType<>(Logging.Companion.get());
+    private AppRepository.StarredLecturesUpdateListener starredLecturesUpdateListener =
+            lectures -> observableStarredLectures.setValue(lectures);
     private boolean sidePane = false;
 
     public static final int DELETE_ALL_FAVORITES_REQUEST_CODE = 19126;
@@ -90,6 +100,10 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
             sidePane = args.getBoolean(BundleKeys.SIDEPANE);
         }
         setHasOptionsMenu(true);
+
+        Context context = requireContext();
+        Meta meta = appRepository.readMeta();
+        mAdapter = new LectureArrayAdapter(context, emptyList(), meta.getNumDays());
     }
 
     @Override
@@ -115,39 +129,45 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
         mListView.setHeaderDividersEnabled(false);
         mListView.setChoiceMode(AbsListView.CHOICE_MODE_MULTIPLE_MODAL);
         mListView.setMultiChoiceModeListener(this);
+
+        mListView.setAdapter(mAdapter);
+
         return view;
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        appRepository.addStarredLecturesUpdateListener(starredLecturesUpdateListener);
+    }
+
+    @Override
+    public void onDestroyView() {
+        appRepository.removeStarredLecturesUpdateListener(starredLecturesUpdateListener);
+        super.onDestroyView();
     }
 
     @Override
     public void onResume() {
         super.onResume();
-        initStarredList();
         jumpOverPastLectures();
     }
 
-    private void initStarredList() {
-        Context context = requireContext();
-        starredList = appRepository.loadStarredLectures();
-        Meta meta = appRepository.readMeta();
-        mAdapter = new LectureArrayAdapter(context, starredList, meta.getNumDays());
-        MyApp.LogDebug(LOG_TAG, "initStarredList: " + starredList.size() + " favorites");
-        mListView.setAdapter(mAdapter);
-    }
-
     private void jumpOverPastLectures() {
-        if (starredList == null) return;
+        List<? extends Lecture> starredLectures = observableStarredLectures.getValue();
+        if (starredLectures.isEmpty()) return;
         long nowMillis = new Moment().toMilliseconds();
 
         int i;
         int numSeparators = 0;
-        for (i = 0; i < starredList.size(); i++) {
-            Lecture lecture = starredList.get(i);
+        for (i = 0; i < starredLectures.size(); i++) {
+            Lecture lecture = starredLectures.get(i);
             if (lecture.dateUTC + lecture.duration * 60000 > nowMillis) {
                 numSeparators = lecture.day;
                 break;
             }
         }
-        if (i > 0 && i < starredList.size()) {
+        if (i > 0 && i < starredLectures.size()) {
             mListView.setSelection(i + 1 + numSeparators);
         }
     }
@@ -155,6 +175,10 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
+        observableStarredLectures.addObserver(() -> {
+            updateAdapter();
+            return Unit.INSTANCE;
+        });
         try {
             mListener = (OnLectureListClick) context;
         } catch (ClassCastException e) {
@@ -166,16 +190,20 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
     @Override
     public void onDetach() {
         super.onDetach();
+        observableStarredLectures.deleteObservers();
         mListener = null;
     }
 
     public void onRefresh() {
-        List<Lecture> starred = appRepository.loadStarredLectures();
-        if (starredList != null) {
-            starredList.clear();
-            starredList.addAll(starred);
-        }
-        mAdapter.notifyDataSetChanged();
+        // TODO Remove once MainActivity#refreshFavoriteList is migrated.
+    }
+
+    private void updateAdapter() {
+        Context context = requireContext();
+        Meta meta = appRepository.readMeta();
+        List<? extends Lecture> starredLectures = observableStarredLectures.getValue();
+        mAdapter = new LectureArrayAdapter(context, starredLectures, meta.getNumDays());
+        mListView.setAdapter(mAdapter);
     }
 
     @Override
@@ -185,7 +213,8 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
             // Notify the active callbacks interface (the activity, if the
             // fragment is attached to one) that an item has been selected.
             position--;
-            Lecture clicked = starredList.get(mAdapter.getItemIndex(position));
+            List<? extends Lecture> starredLectures = observableStarredLectures.getValue();
+            Lecture clicked = starredLectures.get(mAdapter.getItemIndex(position));
             mListener.onLectureListClick(clicked, false);
         }
     }
@@ -195,12 +224,13 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
         super.onCreateOptionsMenu(menu, inflater);
         inflater.inflate(R.menu.starred_list_menu, menu);
         MenuItem item = menu.findItem(R.id.menu_item_delete_all_favorites);
-        if (item != null && (starredList == null || starredList.isEmpty())) {
+        List<? extends Lecture> starredLectures = observableStarredLectures.getValue();
+        if (item != null && starredLectures.isEmpty()) {
             item.setVisible(false);
         }
         item = menu.findItem(R.id.menu_item_share_favorites);
         if (item != null) {
-            item.setVisible(starredList != null && !starredList.isEmpty());
+            item.setVisible(!starredLectures.isEmpty());
         }
     }
 
@@ -240,7 +270,7 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
     public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
         switch (item.getItemId()) {
             case R.id.menu_item_delete_favorite:
-                deleteItems(mListView.getCheckedItemPositions());
+                deleteSelectedItems(mListView.getCheckedItemPositions());
                 Activity activity = requireActivity();
                 activity.invalidateOptionsMenu();
                 refreshViews(activity);
@@ -248,22 +278,6 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
                 return true;
             default:
                 return false;
-        }
-    }
-
-    private void deleteItem(int index) {
-        Lecture starredLecture = starredList.get(index);
-        starredLecture.highlight = false;
-        appRepository.updateHighlight(starredLecture);
-        appRepository.updateLecturesLegacy(starredLecture);
-        starredList.remove(index);
-    }
-
-    private void deleteItems(SparseBooleanArray checkedItemPositions) {
-        for (int id = mListView.getAdapter().getCount() - 1; id >= 0; id--) {
-            if (checkedItemPositions.get(id)) {
-                deleteItem(mAdapter.getItemIndex(id - 1));
-            }
         }
     }
 
@@ -295,25 +309,61 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
     @SuppressWarnings("java:S5413")
     public void deleteAllFavorites() {
         MyApp.LogDebug(LOG_TAG, "deleteAllFavorites");
-        if (starredList == null || starredList.isEmpty()) {
+        List<? extends Lecture> starredLectures = observableStarredLectures.getValue();
+        if (starredLectures.isEmpty()) {
             return;
         }
         appRepository.deleteAllHighlights();
-        int count = starredList.size();
+        // TODO Remove once the FahrplanFragment is wired with the AppRepository.
+        int count = starredLectures.size();
         for (int i = 0; i < count; i++) {
             // Always pop the current top most starred lecture.
-            Lecture starredLecture = starredList.get(0);
+            Lecture starredLecture = starredLectures.get(0);
             starredLecture.highlight = false;
             appRepository.updateLecturesLegacy(starredLecture);
-            starredList.remove(0);
+            starredLectures.remove(0);
         }
         Activity activity = requireActivity();
         activity.invalidateOptionsMenu();
         refreshViews(activity);
     }
 
+    private void deleteSelectedItems(SparseBooleanArray checkedItemPositions) {
+        if (checkedItemPositions.size() == 0) {
+            return;
+        }
+        List<? extends Lecture> starredLectures = observableStarredLectures.getValue();
+        if (starredLectures.isEmpty()) {
+            return;
+        }
+        List<Lecture> zombies = new ArrayList<>(checkedItemPositions.size());
+        for (int id = mListView.getAdapter().getCount() - 1; id >= 0; id--) {
+            if (checkedItemPositions.get(id)) {
+                int index = mAdapter.getItemIndex(id - 1);
+                Lecture zombieLecture = starredLectures.get(index);
+                zombieLecture.highlight = false;
+                zombies.add(zombieLecture);
+            }
+        }
+        appRepository.updateHighlights(zombies);
+        if (MyApp.lectureList != null) {
+            return;
+        }
+        // TODO Remove once the FahrplanFragment is wired with the AppRepository.
+        for (Lecture zombie : zombies) {
+            //noinspection ConstantConditions
+            for (Lecture lecture : MyApp.lectureList) {
+                if (lecture.lectureId.equals(zombie.lectureId)) {
+                    lecture.highlight = false;
+                    break;
+                }
+            }
+        }
+    }
+
     private void shareLectures() {
-        String formattedLectures = SimpleLectureFormat.format(starredList);
+        List<Lecture> lectures = new ArrayList<>(observableStarredLectures.getValue());
+        String formattedLectures = SimpleLectureFormat.format(lectures);
         if (formattedLectures != null) {
             Context context = requireContext();
             if (!LectureSharer.shareSimple(context, formattedLectures)) {

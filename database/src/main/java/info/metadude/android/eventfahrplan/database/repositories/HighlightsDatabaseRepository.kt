@@ -17,6 +17,17 @@ class HighlightsDatabaseRepository(
 
 ) {
 
+    fun update(list: List<ContentValues>, eventIds: List<String>) = with(sqLiteOpenHelper) {
+        writableDatabase.transaction {
+            eventIds.forEach { eventId ->
+                delete(HighlightsTable.NAME, EVENT_ID, eventId)
+            }
+            list.forEach { contentValues ->
+                insert(HighlightsTable.NAME, contentValues)
+            }
+        }
+    }
+
     fun update(values: ContentValues, eventId: String) = with(sqLiteOpenHelper) {
         writableDatabase.upsert({
             delete(HighlightsTable.NAME, EVENT_ID, eventId)

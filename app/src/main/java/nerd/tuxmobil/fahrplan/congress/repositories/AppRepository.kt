@@ -1,6 +1,7 @@
 package nerd.tuxmobil.fahrplan.congress.repositories
 
 import android.content.Context
+import android.support.annotation.VisibleForTesting
 import info.metadude.android.eventfahrplan.commons.logging.Logging
 import info.metadude.android.eventfahrplan.commons.temporal.Moment
 import info.metadude.android.eventfahrplan.database.extensions.toContentValues
@@ -189,6 +190,52 @@ object AppRepository {
         }
     }
 
+    private val starredLecturesUpdateListeners = mutableSetOf<StarredLecturesUpdateListener>()
+
+    /**
+     * Listens for any updates to the content of lectures.
+     */
+    interface StarredLecturesUpdateListener {
+
+        /**
+         * To be invoked when the content of lectures has been updated.
+         */
+        fun onLecturesUpdate(lectures: List<Lecture>)
+    }
+
+    /**
+     * Adds the given [StarredLecturesUpdateListener][listener] to an internal collection.
+     */
+    fun addStarredLecturesUpdateListener(listener: StarredLecturesUpdateListener) {
+        if (starredLecturesUpdateListeners.add(listener)) {
+            notifyInitiallyStarredLecturesUpdateListener(listener)
+        }
+    }
+
+    /**
+     * Removes the given [StarredLecturesUpdateListener][listener] from an internal collection.
+     */
+    fun removeStarredLecturesUpdateListener(listener: StarredLecturesUpdateListener) {
+        starredLecturesUpdateListeners.remove(listener)
+    }
+
+    /**
+     * To be invoked once when the given [listener] is added to the [collection][starredLecturesUpdateListeners].
+     */
+    private fun notifyInitiallyStarredLecturesUpdateListener(listener: StarredLecturesUpdateListener) {
+        starredLecturesUpdateListeners.single { it == listener }
+                .onLecturesUpdate(loadStarredLectures())
+    }
+
+    /**
+     * To be invoked every time when lectures change.
+     */
+    private fun notifyStarredLecturesUpdateListeners() {
+        starredLecturesUpdateListeners.forEach { listener ->
+            listener.onLecturesUpdate(loadStarredLectures())
+        }
+    }
+
     private fun loadingFailed(@Suppress("SameParameterValue") requestIdentifier: String) {
         parentJobs.remove(requestIdentifier)
     }
@@ -333,6 +380,7 @@ object AppRepository {
      * Loads all lectures from the database which have been favored aka. starred but no canceled.
      * The returned list might be empty.
      */
+    @VisibleForTesting
     fun loadStarredLectures() = loadLecturesForAllDays(true)
             .filter { it.highlight && !it.changedIsCanceled }
             .also { logging.d(javaClass.simpleName, "${it.size} lectures starred.") }
@@ -423,10 +471,22 @@ object AppRepository {
         highlightsDatabaseRepository.update(values, lecture.lectureId)
         notifyLectureUpdateListeners(listOf(lecture))
         notifyLecturesChangeListeners()
+        notifyStarredLecturesUpdateListeners()
+    }
+
+    fun updateHighlights(lectures: List<Lecture>) {
+        val highlightsDatabaseModel = lectures.toHighlightsDatabaseModel()
+        val values = highlightsDatabaseModel.toContentValues()
+        val lectureIds = lectures.map { it.lectureId }
+        highlightsDatabaseRepository.update(values, lectureIds)
+        notifyLectureUpdateListeners(lectures)
+        notifyStarredLecturesUpdateListeners()
+        notifyLecturesChangeListeners()
     }
 
     fun deleteAllHighlights() {
         highlightsDatabaseRepository.deleteAll()
+        notifyStarredLecturesUpdateListeners()
     }
 
     private fun readLectureByLectureId(lectureId: String): Lecture {
@@ -485,6 +545,7 @@ object AppRepository {
         val list = lecturesDatabaseModel.map { it.toContentValues() }
         lecturesDatabaseRepository.insert(list)
         notifyLectureUpdateListeners(lectures)
+        notifyStarredLecturesUpdateListeners()
         notifyLecturesChangeListeners()
     }
 
