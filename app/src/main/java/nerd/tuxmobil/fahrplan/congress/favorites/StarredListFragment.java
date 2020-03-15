@@ -293,12 +293,20 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
         }
     }
 
+    @SuppressWarnings("java:S5413")
     public void deleteAllFavorites() {
         MyApp.LogDebug(LOG_TAG, "deleteAllFavorites");
-        if (starredList == null) return;
+        if (starredList == null || starredList.isEmpty()) {
+            return;
+        }
+        appRepository.deleteAllHighlights();
         int count = starredList.size();
         for (int i = 0; i < count; i++) {
-            deleteItem(0);
+            // Always pop the current top most starred lecture.
+            Lecture starredLecture = starredList.get(0);
+            starredLecture.highlight = false;
+            appRepository.updateLecturesLegacy(starredLecture);
+            starredList.remove(0);
         }
         Activity activity = requireActivity();
         activity.invalidateOptionsMenu();
