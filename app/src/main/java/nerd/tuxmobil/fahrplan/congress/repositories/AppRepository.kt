@@ -81,6 +81,55 @@ object AppRepository {
         this.sharedPreferencesRepository = sharedPreferencesRepository
     }
 
+
+    private val allLecturesUpdateListeners = mutableSetOf<AllLecturesUpdateListener>()
+
+    /**
+     * Listens for any updates to the content of lectures.
+     */
+    interface AllLecturesUpdateListener {
+
+        fun getDayIndex(): Int
+
+        /**
+         * To be invoked when the content of lectures has been updated.
+         */
+        fun onLecturesUpdate(lectures: List<Lecture>)
+    }
+
+    /**
+     * Adds the given [AllLecturesUpdateListener][listener] to an internal collection.
+     */
+    fun addAllLecturesUpdateListener(listener: AllLecturesUpdateListener) {
+        if (allLecturesUpdateListeners.add(listener)) {
+            notifyInitiallyAllLecturesUpdateListener(listener)
+        }
+    }
+
+    /**
+     * Removes the given [AllLecturesUpdateListener][listener] from an internal collection.
+     */
+    fun removeAllLecturesUpdateListener(listener: AllLecturesUpdateListener) {
+        allLecturesUpdateListeners.remove(listener)
+    }
+
+    /**
+     * To be invoked once when the given [listener] is added to the [collection][allLecturesUpdateListeners].
+     */
+    private fun notifyInitiallyAllLecturesUpdateListener(listener: AllLecturesUpdateListener) {
+        allLecturesUpdateListeners.single { it == listener }
+                .onLecturesUpdate(loadUncanceledLecturesForDayIndex(listener.getDayIndex()))
+    }
+
+    /**
+     * To be invoked every time when lectures change.
+     */
+    private fun notifyAllLecturesUpdateListeners() {
+        allLecturesUpdateListeners.forEach { listener ->
+            listener.onLecturesUpdate(loadUncanceledLecturesForDayIndex(listener.getDayIndex()))
+        }
+    }
+
     private val lecturesChangeListeners = mutableSetOf<LecturesChangeListener>()
 
     /**
@@ -372,6 +421,7 @@ object AppRepository {
      * Loads all lectures from the database which have not been canceled.
      * The returned list might be empty.
      */
+    @VisibleForTesting
     fun loadUncanceledLecturesForDayIndex(dayIndex: Int) = loadLecturesForDayIndex(dayIndex, true)
             .filterNot { it.changedIsCanceled }
             .also { logging.d(javaClass.simpleName, "${it.size} uncanceled lectures.") }
@@ -469,6 +519,7 @@ object AppRepository {
         val highlightDatabaseModel = lecture.toHighlightDatabaseModel()
         val values = highlightDatabaseModel.toContentValues()
         highlightsDatabaseRepository.update(values, lecture.lectureId)
+        notifyAllLecturesUpdateListeners()
         notifyLectureUpdateListeners(listOf(lecture))
         notifyLecturesChangeListeners()
         notifyStarredLecturesUpdateListeners()
@@ -479,6 +530,7 @@ object AppRepository {
         val values = highlightsDatabaseModel.toContentValues()
         val lectureIds = lectures.map { it.lectureId }
         highlightsDatabaseRepository.update(values, lectureIds)
+        notifyAllLecturesUpdateListeners()
         notifyLectureUpdateListeners(lectures)
         notifyStarredLecturesUpdateListeners()
         notifyLecturesChangeListeners()
@@ -544,6 +596,7 @@ object AppRepository {
         val lecturesDatabaseModel = lectures.toLecturesDatabaseModel()
         val list = lecturesDatabaseModel.map { it.toContentValues() }
         lecturesDatabaseRepository.insert(list)
+        notifyAllLecturesUpdateListeners()
         notifyLectureUpdateListeners(lectures)
         notifyStarredLecturesUpdateListeners()
         notifyLecturesChangeListeners()

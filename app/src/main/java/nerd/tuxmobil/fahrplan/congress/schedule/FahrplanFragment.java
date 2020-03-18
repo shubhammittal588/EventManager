@@ -53,6 +53,7 @@ import nerd.tuxmobil.fahrplan.congress.MyApp;
 import nerd.tuxmobil.fahrplan.congress.R;
 import nerd.tuxmobil.fahrplan.congress.alarms.AlarmTimePickerFragment;
 import nerd.tuxmobil.fahrplan.congress.calendar.CalendarSharing;
+import nerd.tuxmobil.fahrplan.congress.commons.ObservableType;
 import nerd.tuxmobil.fahrplan.congress.contract.BundleKeys;
 import nerd.tuxmobil.fahrplan.congress.extensions.Contexts;
 import nerd.tuxmobil.fahrplan.congress.models.Alarm;
@@ -153,10 +154,35 @@ public class FahrplanFragment extends Fragment implements OnClickListener {
 
     private Lecture lastSelectedLecture;
 
+    private ObservableType<List<Lecture>> observableLectures = new ObservableType<>();
+    private AppRepository.AllLecturesUpdateListener allLecturesUpdateListener = new AppRepository.AllLecturesUpdateListener() {
+
+        @Override
+        public int getDayIndex() {
+            return mDay;
+        }
+
+        @Override
+        public void onLecturesUpdate(@NonNull List<? extends Lecture> lectures) {
+            observableLectures.setValue(new ArrayList<>(lectures));
+        }
+
+    };
+
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
         appRepository = AppRepository.INSTANCE;
+        observableLectures.addObserver(() -> {
+            updateViews();
+            return Unit.INSTANCE;
+        });
+    }
+
+    @Override
+    public void onDetach() {
+        observableLectures.deleteObservers();
+        super.onDetach();
     }
 
     @Override
@@ -238,6 +264,13 @@ public class FahrplanFragment extends Fragment implements OnClickListener {
         if (MyApp.meta.getNumDays() > 1) {
             buildNavigationMenu();
         }
+        appRepository.addAllLecturesUpdateListener(allLecturesUpdateListener);
+    }
+
+    @Override
+    public void onDestroyView() {
+        appRepository.removeAllLecturesUpdateListener(allLecturesUpdateListener);
+        super.onDestroyView();
     }
 
     private void saveCurrentDay(int day) {
@@ -278,20 +311,11 @@ public class FahrplanFragment extends Fragment implements OnClickListener {
         Log.d(LOG_TAG, "MyApp.task_running = " + MyApp.task_running);
         switch (MyApp.task_running) {
             case FETCH:
-                Log.d(LOG_TAG, "fetch was pending, restart");
-                if (MyApp.meta.getNumDays() != 0) {
-                    viewDay(false);
-                }
                 break;
             case PARSE:
                 Log.d(LOG_TAG, "parse was pending, restart");
                 break;
             case NONE:
-                Log.d(LOG_TAG, "meta.getNumDays() = " + MyApp.meta.getNumDays());
-                if (MyApp.meta.getNumDays() != 0) {
-                    // auf jeden Fall reload, wenn mit Lecture ID gestartet
-                    viewDay(lectureId != null);
-                }
                 break;
         }
 
@@ -307,10 +331,13 @@ public class FahrplanFragment extends Fragment implements OnClickListener {
         fillTimes();
     }
 
-    private void viewDay(boolean reload) {
-        Log.d(LOG_TAG, "viewDay(" + reload + ")");
+    private void updateViews() {
+        List<Lecture> lectures = observableLectures.getValue();
+        viewDay(lectures);
+    }
 
-        loadLectureList(appRepository, mDay, reload);
+    private void viewDay(@NonNull List<Lecture> freshLectures) {
+        loadLectureList(freshLectures, mDay);
         List<Lecture> lectures = MyApp.lectureList;
         if (lectures != null && !lectures.isEmpty()) {
             conference.calculateTimeFrame(lectures, dateUTC -> new Moment(dateUTC).getMinuteOfDay());
@@ -514,7 +541,10 @@ public class FahrplanFragment extends Fragment implements OnClickListener {
         if (chosenDay + 1 != mDay) {
             mDay = chosenDay + 1;
             saveCurrentDay(mDay);
-            viewDay(true);
+            // Register new because the day changed
+            // and we are loading data per day.
+            appRepository.removeAllLecturesUpdateListener(allLecturesUpdateListener);
+            appRepository.addAllLecturesUpdateListener(allLecturesUpdateListener);
             fillTimes();
         }
     }
@@ -706,14 +736,8 @@ public class FahrplanFragment extends Fragment implements OnClickListener {
         eventView.setTag(lecture);
     }
 
-    public static void loadLectureList(@NonNull AppRepository appRepository, int day, boolean force) {
-        MyApp.LogDebug(LOG_TAG, "load lectures of day " + day);
-
-        if (!force && MyApp.lectureList != null && MyApp.lectureListDay == day) {
-            return;
-        }
-
-        MyApp.lectureList = appRepository.loadUncanceledLecturesForDayIndex(day);
+    public static void loadLectureList(@NonNull List<Lecture> lectures, int day) {
+        MyApp.lectureList = lectures;
         if (MyApp.lectureList.isEmpty()) {
             return;
         }
@@ -768,8 +792,6 @@ public class FahrplanFragment extends Fragment implements OnClickListener {
         if (!MyApp.lectureList.isEmpty() && MyApp.lectureList.get(0).dateUTC > 0) {
             Collections.sort(MyApp.lectureList, (lhs, rhs) -> Long.compare(lhs.dateUTC, rhs.dateUTC));
         }
-
-        loadAlarms(appRepository);
     }
 
     public static void loadAlarms(@NonNull AppRepository appRepository) {
@@ -850,10 +872,6 @@ public class FahrplanFragment extends Fragment implements OnClickListener {
                 if (mDay > MyApp.meta.getNumDays()) {
                     mDay = 1;
                 }
-                viewDay(true);
-                fillTimes();
-            } else {
-                viewDay(false);
             }
         } else {
             String message = getParsingErrorMessage(result);
