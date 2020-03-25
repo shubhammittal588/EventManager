@@ -37,6 +37,7 @@ import android.widget.Toast;
 import org.ligi.tracedroid.logging.Log;
 import org.threeten.bp.Duration;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -52,6 +53,8 @@ import nerd.tuxmobil.fahrplan.congress.MyApp;
 import nerd.tuxmobil.fahrplan.congress.R;
 import nerd.tuxmobil.fahrplan.congress.alarms.AlarmTimePickerFragment;
 import nerd.tuxmobil.fahrplan.congress.calendar.CalendarSharing;
+import nerd.tuxmobil.fahrplan.congress.commons.LiveDataExtensions;
+import nerd.tuxmobil.fahrplan.congress.commons.ObservableType;
 import nerd.tuxmobil.fahrplan.congress.extensions.Contexts;
 import nerd.tuxmobil.fahrplan.congress.models.Alarm;
 import nerd.tuxmobil.fahrplan.congress.models.Lecture;
@@ -132,11 +135,23 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
     private LectureViewDrawer lectureViewDrawer;
 
     private Map<Integer, LectureViewColumnAdapter> adapterByRoomIndex = new HashMap<>();
+    private final ObservableType<List<Lecture>> observableLectures = new ObservableType<>();
+    private UncanceledLecturesLiveData uncanceledLecturesLiveData;
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
         appRepository = AppRepository.INSTANCE;
+        observableLectures.addObserver(() -> {
+            updateViews();
+            return Unit.INSTANCE;
+        });
+    }
+
+    @Override
+    public void onDetach() {
+        observableLectures.deleteObservers();
+        super.onDetach();
     }
 
     @Override
@@ -196,6 +211,11 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
         if (MyApp.meta.getNumDays() > 1) {
             buildNavigationMenu();
         }
+        uncanceledLecturesLiveData = new UncanceledLecturesLiveData(mDay);
+        LiveDataExtensions.observeNonNullOrThrow(uncanceledLecturesLiveData, this, lectures -> {
+            observableLectures.setValue(new ArrayList<>(lectures));
+            return Unit.INSTANCE;
+        });
     }
 
     private void saveCurrentDay(int day) {
@@ -233,20 +253,11 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
         Log.d(LOG_TAG, "MyApp.task_running = " + MyApp.task_running);
         switch (MyApp.task_running) {
             case FETCH:
-                Log.d(LOG_TAG, "fetch was pending, restart");
-                if (MyApp.meta.getNumDays() != 0) {
-                    viewDay(false);
-                }
                 break;
             case PARSE:
                 Log.d(LOG_TAG, "parse was pending, restart");
                 break;
             case NONE:
-                Log.d(LOG_TAG, "meta.getNumDays() = " + MyApp.meta.getNumDays());
-                if (MyApp.meta.getNumDays() != 0) {
-                    // auf jeden Fall reload, wenn mit Lecture ID gestartet
-                    viewDay(lectureId != null);
-                }
                 break;
         }
 
@@ -262,8 +273,14 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
         fillTimes();
     }
 
-    private void viewDay(boolean forceReload) {
-        Log.d(LOG_TAG, "viewDay(" + forceReload + ")");
+    private void updateViews() {
+        List<Lecture> lectures = observableLectures.getValue();
+        Log.d(getClass().getSimpleName(), "updateViews: lectures = " + lectures.size());
+        viewDay(lectures);
+        fillTimes();
+    }
+
+    private void viewDay(@NonNull List<Lecture> freshLectures) {
         View layoutRoot = getView();
         int boxHeight = getNormalizedBoxHeight(getResources(), scale, LOG_TAG);
 
@@ -272,7 +289,7 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
             horizontalScroller.scrollTo(0, 0);
         }
 
-        loadLectureList(appRepository, mDay, forceReload);
+        loadLectureList(Logging.Companion.get(), freshLectures, mDay);
         List<Lecture> lecturesOfDay = MyApp.lectureList;
 
         if (lecturesOfDay != null) {
@@ -286,7 +303,7 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
                     // update pre-calculated roomColumnWidth with actual layout
                     roomColumnWidth = horizontalScroller.getColumnWidth();
                 }
-                addRoomColumns(horizontalScroller, lecturesOfDay, MyApp.roomCount, forceReload);
+                addRoomColumns(horizontalScroller, lecturesOfDay, MyApp.roomCount);
             }
         }
 
@@ -321,14 +338,13 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
     private void addRoomColumns(
             @NonNull HorizontalSnapScrollView horizontalScroller,
             @NonNull List<Lecture> lectures,
-            int roomCount,
-            boolean forceReload
+            int roomCount
     ) {
         int columnIndexLeft = horizontalScroller.getColumn();
         int columnIndexRight = columnIndexLeft + maxRoomColumnsVisible;
 
         // whenever possible, just update recycler views
-        if (!forceReload && !adapterByRoomIndex.isEmpty()) {
+        if (!adapterByRoomIndex.isEmpty()) {
             for (int columnIndex = columnIndexLeft; columnIndex <= columnIndexRight; columnIndex++) {
                 int roomIndex = MyApp.roomList.get(columnIndex);
                 //noinspection ConstantConditions
@@ -512,7 +528,15 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
         if (chosenDay + 1 != mDay) {
             mDay = chosenDay + 1;
             saveCurrentDay(mDay);
-            viewDay(true);
+            // Register new because the day changed
+            // and we are loading data per day.
+            Log.d(getClass().getSimpleName(), "chooseDay");
+            uncanceledLecturesLiveData = new UncanceledLecturesLiveData(mDay);
+            uncanceledLecturesLiveData.removeObservers(this);
+            LiveDataExtensions.observeNonNullOrThrow(uncanceledLecturesLiveData, this, lectures -> {
+                observableLectures.setValue(new ArrayList<>(lectures));
+                return Unit.INSTANCE;
+            });
             fillTimes();
         }
     }
@@ -563,14 +587,12 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
         return padding;
     }
 
-    public static void loadLectureList(@NonNull AppRepository appRepository, int day, boolean forceReload) {
-        MyApp.LogDebug(LOG_TAG, "load lectures of day " + day);
+    public static void loadLectureList(@NonNull Logging logging, @NonNull List<Lecture> lectures, int day) {
+        logging.d(LOG_TAG, "load lectures of day " + day);
 
-        if (!forceReload && MyApp.lectureList != null && MyApp.lectureListDay == day) {
+        if (MyApp.lectureList != null && MyApp.lectureListDay == day) {
             return;
         }
-
-        List<Lecture> lectures = appRepository.loadUncanceledLecturesForDayIndex(day);
 
         LegacyLectureData legacyLectureData = lectureListTransformer.legacyTransformLectureList(day, lectures);
 
@@ -664,10 +686,6 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
                 if (mDay > MyApp.meta.getNumDays()) {
                     mDay = 1;
                 }
-                viewDay(true);
-                fillTimes();
-            } else {
-                viewDay(false);
             }
         } else {
             String message = getParsingErrorMessage(result);
