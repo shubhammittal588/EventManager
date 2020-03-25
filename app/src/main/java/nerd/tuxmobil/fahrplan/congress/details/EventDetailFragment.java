@@ -23,16 +23,16 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import org.ligi.tracedroid.logging.Log;
-
-import java.util.Locale;
-
+import info.metadude.android.eventfahrplan.commons.logging.Logging;
 import info.metadude.android.eventfahrplan.commons.temporal.DateFormatter;
+import kotlin.Unit;
 import nerd.tuxmobil.fahrplan.congress.BuildConfig;
 import nerd.tuxmobil.fahrplan.congress.MyApp;
 import nerd.tuxmobil.fahrplan.congress.R;
 import nerd.tuxmobil.fahrplan.congress.alarms.AlarmTimePickerFragment;
 import nerd.tuxmobil.fahrplan.congress.calendar.CalendarSharing;
+import nerd.tuxmobil.fahrplan.congress.commons.LiveDataExtensions;
+import nerd.tuxmobil.fahrplan.congress.commons.ObservableType;
 import nerd.tuxmobil.fahrplan.congress.contract.BundleKeys;
 import nerd.tuxmobil.fahrplan.congress.models.Lecture;
 import nerd.tuxmobil.fahrplan.congress.navigation.RoomForC3NavConverter;
@@ -65,10 +65,6 @@ public class EventDetailFragment extends Fragment {
 
     private String eventId;
 
-    private String title;
-
-    private Locale locale;
-
     private Typeface boldCondensed;
 
     private Typeface black;
@@ -79,32 +75,36 @@ public class EventDetailFragment extends Fragment {
 
     private Typeface bold;
 
-    private Lecture lecture;
-
-    private int day;
-
-    private String subtitle;
-
-    private String spkr;
-
-    private String abstractt;
-
-    private String descr;
-
-    private String links;
-
-    private String room;
-
     private boolean sidePane = false;
 
-    private boolean requiresScheduleReload = false;
-
     private boolean hasArguments = false;
+
+    /**
+     * A single lecture which can be observed. Once it changes then its observers are notified
+     * so they can immediately update the user interface.
+     */
+    private final ObservableType<Lecture> observableLecture = new ObservableType<>(Logging.Companion.get());
 
     @Override
     public void onAttach(Context context) {
         super.onAttach(context);
         appRepository = AppRepository.INSTANCE;
+        observableLecture.addObserver(() -> {
+            updateViews();
+            return Unit.INSTANCE;
+        });
+        LiveDataExtensions.observeNonNullOrThrow(new LectureLiveData(eventId), this, lecture -> {
+            observableLecture.setValue(lecture);
+            //noinspection ConstantConditions
+            showContent(getView());
+            return Unit.INSTANCE;
+        });
+    }
+
+    @Override
+    public void onDetach() {
+        observableLecture.deleteObservers();
+        super.onDetach();
     }
 
     @Override
@@ -118,27 +118,21 @@ public class EventDetailFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
+        View layout;
         if (sidePane) {
-            return inflater.inflate(R.layout.detail_narrow, container, false);
+            layout = inflater.inflate(R.layout.detail_narrow, container, false);
         } else {
-            return inflater.inflate(R.layout.detail, container, false);
+            layout = inflater.inflate(R.layout.detail, container, false);
         }
+        showProgressBar(layout);
+        return layout;
     }
 
     @Override
     public void setArguments(Bundle args) {
         super.setArguments(args);
-        day = args.getInt(BundleKeys.EVENT_DAY, 0);
         eventId = args.getString(BundleKeys.EVENT_ID);
-        title = args.getString(BundleKeys.EVENT_TITLE);
-        subtitle = args.getString(BundleKeys.EVENT_SUBTITLE);
-        spkr = args.getString(BundleKeys.EVENT_SPEAKERS);
-        abstractt = args.getString(BundleKeys.EVENT_ABSTRACT);
-        descr = args.getString(BundleKeys.EVENT_DESCRIPTION);
-        links = args.getString(BundleKeys.EVENT_LINKS);
-        room = args.getString(BundleKeys.EVENT_ROOM);
         sidePane = args.getBoolean(BundleKeys.SIDEPANE, false);
-        requiresScheduleReload = args.getBoolean(BundleKeys.REQUIRES_SCHEDULE_RELOAD, false);
         hasArguments = true;
     }
 
@@ -154,122 +148,133 @@ public class EventDetailFragment extends Fragment {
             light = Typeface.createFromAsset(assetManager, "Roboto-Light.ttf");
             regular = Typeface.createFromAsset(assetManager, "Roboto-Regular.ttf");
             bold = Typeface.createFromAsset(assetManager, "Roboto-Bold.ttf");
+        }
+        activity.setResult(Activity.RESULT_CANCELED);
+    }
 
-            locale = getResources().getConfiguration().locale;
+    private void showProgressBar(@NonNull View layout) {
+        layout.findViewById(R.id.event_detail_progress_bar).setVisibility(View.VISIBLE);
+        layout.findViewById(R.id.event_detail_bar_layout).setVisibility(View.GONE);
+        layout.findViewById(R.id.event_detail_content_layout).setVisibility(View.GONE);
+    }
 
-            // TODO: Remove this after 36C3. Right now it's only kept to minimize the likelihood of
-            //  unintended behavior changes.
-            FahrplanFragment.loadLectureList(appRepository, day, requiresScheduleReload);
+    private void showContent(@NonNull View layout) {
+        layout.findViewById(R.id.event_detail_progress_bar).setVisibility(View.GONE);
+        layout.findViewById(R.id.event_detail_bar_layout).setVisibility(View.VISIBLE);
+        layout.findViewById(R.id.event_detail_content_layout).setVisibility(View.VISIBLE);
+    }
 
-            lecture = eventIdToLecture(eventId);
+    private void updateViews() {
+        Activity activity = requireActivity();
+        View view = getView();
 
-            // Detailbar
+        Lecture lecture = observableLecture.getValue();
 
-            TextView t;
-            t = view.findViewById(R.id.lecture_detailbar_date_time);
-            if (lecture != null && lecture.dateUTC > 0) {
-                t.setText(DateFormatter.newInstance().getFormattedDateTimeShort(lecture.dateUTC));
-            } else {
-                t.setText("");
-            }
+        // Detailbar
 
-            t = view.findViewById(R.id.lecture_detailbar_location);
-            if (TextUtils.isEmpty(room)) {
-                t.setText("");
-            } else {
-                t.setText(room);
-            }
+        TextView t;
+        t = view.findViewById(R.id.lecture_detailbar_date_time);
+        if (lecture.dateUTC > 0) {
+            t.setText(DateFormatter.newInstance().getFormattedDateTimeShort(lecture.dateUTC));
+        } else {
+            t.setText("");
+        }
 
-            t = view.findViewById(R.id.lecture_detailbar_lecture_id);
-            if (TextUtils.isEmpty(eventId)) {
-                t.setText("");
-            } else {
-                t.setText("ID: " + eventId);
-            }
+        t = view.findViewById(R.id.lecture_detailbar_location);
+        if (TextUtils.isEmpty(lecture.room)) {
+            t.setText("");
+        } else {
+            t.setText(lecture.room);
+        }
 
-            // Title
+        t = view.findViewById(R.id.lecture_detailbar_lecture_id);
+        if (TextUtils.isEmpty(eventId)) {
+            t.setText("");
+        } else {
+            t.setText("ID: " + eventId);
+        }
 
-            t = view.findViewById(R.id.event_detail_content_title_view);
-            setUpTextView(t, boldCondensed, title);
+        // Title
 
-            // Subtitle
+        t = view.findViewById(R.id.event_detail_content_title_view);
+        setUpTextView(t, boldCondensed, lecture.title);
 
-            t = view.findViewById(R.id.event_detail_content_subtitle_view);
-            if (TextUtils.isEmpty(subtitle)) {
-                t.setVisibility(View.GONE);
-            } else {
-                setUpTextView(t, light, subtitle);
-            }
+        // Subtitle
 
-            // Speakers
+        t = view.findViewById(R.id.event_detail_content_subtitle_view);
+        if (TextUtils.isEmpty(lecture.subtitle)) {
+            t.setVisibility(View.GONE);
+        } else {
+            setUpTextView(t, light, lecture.subtitle);
+        }
 
-            t = view.findViewById(R.id.event_detail_content_speakers_view);
-            if (TextUtils.isEmpty(spkr)) {
-                t.setVisibility(View.GONE);
-            } else {
-                setUpTextView(t, black, spkr);
-            }
+        // Speakers
 
-            // Abstract
+        t = view.findViewById(R.id.event_detail_content_speakers_view);
+        if (TextUtils.isEmpty(lecture.speakers)) {
+            t.setVisibility(View.GONE);
+        } else {
+            setUpTextView(t, black, lecture.speakers);
+        }
 
-            t = view.findViewById(R.id.event_detail_content_abstract_view);
-            if (TextUtils.isEmpty(abstractt)) {
-                t.setVisibility(View.GONE);
-            } else {
-                abstractt = StringUtils.getHtmlLinkFromMarkdown(abstractt);
-                setUpHtmlTextView(t, bold, abstractt);
-            }
+        // Abstract
 
-            // Description
+        t = view.findViewById(R.id.event_detail_content_abstract_view);
+        if (TextUtils.isEmpty(lecture.abstractt)) {
+            t.setVisibility(View.GONE);
+        } else {
+            String html = StringUtils.getHtmlLinkFromMarkdown(lecture.abstractt);
+            setUpHtmlTextView(t, bold, html);
+        }
 
-            t = view.findViewById(R.id.event_detail_content_description_view);
-            if (TextUtils.isEmpty(descr)) {
-                t.setVisibility(View.GONE);
-            } else {
-                descr = StringUtils.getHtmlLinkFromMarkdown(descr);
-                setUpHtmlTextView(t, regular, descr);
-            }
+        // Description
 
-            // Links
+        t = view.findViewById(R.id.event_detail_content_description_view);
+        if (TextUtils.isEmpty(lecture.description)) {
+            t.setVisibility(View.GONE);
+        } else {
+            String html = StringUtils.getHtmlLinkFromMarkdown(lecture.description);
+            setUpHtmlTextView(t, regular, html);
+        }
 
-            TextView l = view.findViewById(R.id.event_detail_content_links_section_view);
-            t = view.findViewById(R.id.event_detail_content_links_view);
-            if (TextUtils.isEmpty(links)) {
-                l.setVisibility(View.GONE);
-                t.setVisibility(View.GONE);
-            } else {
-                l.setTypeface(bold);
-                MyApp.LogDebug(LOG_TAG, "show links");
-                l.setVisibility(View.VISIBLE);
-                links = links.replaceAll("\\),", ")<br>");
-                links = StringUtils.getHtmlLinkFromMarkdown(links);
-                setUpHtmlTextView(t, regular, links);
-            }
+        // Links
 
-            // Event online
+        TextView l = view.findViewById(R.id.event_detail_content_links_section_view);
+        t = view.findViewById(R.id.event_detail_content_links_view);
+        if (TextUtils.isEmpty(lecture.links)) {
+            l.setVisibility(View.GONE);
+            t.setVisibility(View.GONE);
+        } else {
+            l.setTypeface(bold);
+            MyApp.LogDebug(LOG_TAG, "show links");
+            l.setVisibility(View.VISIBLE);
+            String links = lecture.links.replaceAll("\\),", ")<br>");
+            links = StringUtils.getHtmlLinkFromMarkdown(links);
+            setUpHtmlTextView(t, regular, links);
+        }
 
-            final TextView eventOnlineSection = view.findViewById(R.id.event_detail_content_event_online_section_view);
-            eventOnlineSection.setTypeface(bold);
-            final TextView eventOnlineLink = view.findViewById(R.id.event_detail_content_event_online_view);
-            if (WikiEventUtils.containsWikiLink(links)) {
+        // Event online
+
+        final TextView eventOnlineSection = view.findViewById(R.id.event_detail_content_event_online_section_view);
+        eventOnlineSection.setTypeface(bold);
+        final TextView eventOnlineLink = view.findViewById(R.id.event_detail_content_event_online_view);
+        if (WikiEventUtils.containsWikiLink(lecture.links)) {
+            eventOnlineSection.setVisibility(View.GONE);
+            eventOnlineLink.setVisibility(View.GONE);
+        } else {
+            String eventUrl = new EventUrlComposer(lecture).getEventUrl();
+            if (eventUrl.isEmpty()) {
                 eventOnlineSection.setVisibility(View.GONE);
                 eventOnlineLink.setVisibility(View.GONE);
             } else {
-                String eventUrl = new EventUrlComposer(lecture).getEventUrl();
-                if (eventUrl.isEmpty()) {
-                    eventOnlineSection.setVisibility(View.GONE);
-                    eventOnlineLink.setVisibility(View.GONE);
-                } else {
-                    eventOnlineSection.setVisibility(View.VISIBLE);
-                    eventOnlineLink.setVisibility(View.VISIBLE);
-                    String eventLink = "<a href=\"" + eventUrl + "\">" + eventUrl + "</a>";
-                    setUpHtmlTextView(eventOnlineLink, regular, eventLink);
-                }
+                eventOnlineSection.setVisibility(View.VISIBLE);
+                eventOnlineLink.setVisibility(View.VISIBLE);
+                String eventLink = "<a href=\"" + eventUrl + "\">" + eventUrl + "</a>";
+                setUpHtmlTextView(eventOnlineLink, regular, eventLink);
             }
-
-            activity.invalidateOptionsMenu();
         }
-        activity.setResult(Activity.RESULT_CANCELED);
+
+        activity.invalidateOptionsMenu();
     }
 
     private void setUpTextView(@NonNull TextView textView,
@@ -296,26 +301,31 @@ public class EventDetailFragment extends Fragment {
         super.onCreateOptionsMenu(menu, inflater);
         inflater.inflate(R.menu.detailmenu, menu);
         MenuItem item;
-        if (lecture != null) {
-            if (lecture.highlight) {
-                item = menu.findItem(R.id.menu_item_flag_as_favorite);
-                if (item != null) {
-                    item.setVisible(false);
-                }
-                item = menu.findItem(R.id.menu_item_unflag_as_favorite);
-                if (item != null) {
-                    item.setVisible(true);
-                }
+        Lecture lecture;
+        try {
+            lecture = observableLecture.getValue();
+        } catch (IllegalStateException e) {
+            // Don't worry. Lecture has just not been loaded from database yet.
+            return;
+        }
+        if (lecture.highlight) {
+            item = menu.findItem(R.id.menu_item_flag_as_favorite);
+            if (item != null) {
+                item.setVisible(false);
             }
-            if (lecture.hasAlarm) {
-                item = menu.findItem(R.id.menu_item_set_alarm);
-                if (item != null) {
-                    item.setVisible(false);
-                }
-                item = menu.findItem(R.id.menu_item_delete_alarm);
-                if (item != null) {
-                    item.setVisible(true);
-                }
+            item = menu.findItem(R.id.menu_item_unflag_as_favorite);
+            if (item != null) {
+                item.setVisible(true);
+            }
+        }
+        if (lecture.hasAlarm) {
+            item = menu.findItem(R.id.menu_item_set_alarm);
+            if (item != null) {
+                item.setVisible(false);
+            }
+            item = menu.findItem(R.id.menu_item_delete_alarm);
+            if (item != null) {
+                item.setVisible(true);
             }
         }
         item = menu.findItem(R.id.menu_item_feedback);
@@ -352,16 +362,8 @@ public class EventDetailFragment extends Fragment {
 
     @NonNull
     private String getRoomConvertedForC3Nav() {
-        String currentRoom = requireActivity().getIntent().getStringExtra(BundleKeys.EVENT_ROOM);
-        if (currentRoom == null) {
-            currentRoom = room;
-        }
-        return RoomForC3NavConverter.convert(currentRoom);
-    }
-
-    @NonNull
-    private Lecture eventIdToLecture(String eventId) {
-        return appRepository.readLectureByLectureId(eventId);
+        Lecture lecture = observableLecture.getValue();
+        return RoomForC3NavConverter.convert(lecture.room);
     }
 
     @Override
@@ -381,22 +383,18 @@ public class EventDetailFragment extends Fragment {
 
     private void onAlarmTimesIndexPicked(int alarmTimesIndex) {
         Activity activity = requireActivity();
-        if (lecture != null) {
-            FahrplanMisc.addAlarm(activity, appRepository, lecture, alarmTimesIndex);
-        } else {
-            Log.e(getClass().getSimpleName(), "onAlarmTimesIndexPicked: lecture: null. alarmTimesIndex: " + alarmTimesIndex);
-        }
+        Lecture lecture = observableLecture.getValue();
+        FahrplanMisc.addAlarm(activity, appRepository, lecture, alarmTimesIndex);
         refreshUI(activity);
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        Lecture l;
+        Lecture lecture = observableLecture.getValue();
         Activity activity = requireActivity();
         switch (item.getItemId()) {
             case R.id.menu_item_feedback: {
-                l = eventIdToLecture(eventId);
-                String feedbackUrl = new FeedbackUrlComposer(l, SCHEDULE_FEEDBACK_URL).getFeedbackUrl();
+                String feedbackUrl = new FeedbackUrlComposer(lecture, SCHEDULE_FEEDBACK_URL).getFeedbackUrl();
                 Uri uri = Uri.parse(feedbackUrl);
                 Intent intent = new Intent(Intent.ACTION_VIEW, uri);
                 startActivity(intent);
@@ -404,46 +402,37 @@ public class EventDetailFragment extends Fragment {
             }
             case R.id.menu_item_share_event:
             case R.id.menu_item_share_event_text:
-                l = eventIdToLecture(eventId);
-                String formattedLecture = SimpleLectureFormat.format(l);
+                String formattedLecture = SimpleLectureFormat.format(lecture);
                 if (!LectureSharer.shareSimple(activity, formattedLecture)) {
                     Toast.makeText(activity, R.string.share_error_activity_not_found, Toast.LENGTH_SHORT).show();
                 }
                 return true;
             case R.id.menu_item_share_event_json:
-                l = eventIdToLecture(eventId);
-                String jsonLecture = JsonLectureFormat.format(l);
+                String jsonLecture = JsonLectureFormat.format(lecture);
                 if (!LectureSharer.shareJson(activity, jsonLecture)) {
                     Toast.makeText(activity, R.string.share_error_activity_not_found, Toast.LENGTH_SHORT).show();
                 }
                 return true;
             case R.id.menu_item_add_to_calendar:
-                l = eventIdToLecture(eventId);
-                CalendarSharing.addToCalendar(l, activity);
+                CalendarSharing.addToCalendar(lecture, activity);
                 return true;
             case R.id.menu_item_flag_as_favorite:
-                if (lecture != null) {
-                    lecture.highlight = true;
-                    appRepository.updateHighlight(lecture);
-                    appRepository.updateLecturesLegacy(lecture);
-                }
+                lecture.highlight = true;
+                appRepository.updateHighlight(lecture);
+                appRepository.updateLecturesLegacy(lecture);
                 refreshUI(activity);
                 return true;
             case R.id.menu_item_unflag_as_favorite:
-                if (lecture != null) {
-                    lecture.highlight = false;
-                    appRepository.updateHighlight(lecture);
-                    appRepository.updateLecturesLegacy(lecture);
-                }
+                lecture.highlight = false;
+                appRepository.updateHighlight(lecture);
+                appRepository.updateLecturesLegacy(lecture);
                 refreshUI(activity);
                 return true;
             case R.id.menu_item_set_alarm:
                 showAlarmTimePicker();
                 return true;
             case R.id.menu_item_delete_alarm:
-                if (lecture != null) {
-                    FahrplanMisc.deleteAlarm(activity, appRepository, lecture);
-                }
+                FahrplanMisc.deleteAlarm(activity, appRepository, lecture);
                 refreshUI(activity);
                 return true;
             case R.id.menu_item_close_event_details:
@@ -459,6 +448,7 @@ public class EventDetailFragment extends Fragment {
         return super.onOptionsItemSelected(item);
     }
 
+    // TODO Remove once FahrplanFragment observes AppRepository lecture data.
     private void refreshUI(@NonNull Activity activity) {
         activity.invalidateOptionsMenu();
         activity.setResult(Activity.RESULT_OK);

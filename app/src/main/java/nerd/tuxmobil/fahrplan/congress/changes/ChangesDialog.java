@@ -30,12 +30,10 @@ public class ChangesDialog extends DialogFragment {
     private int cancelled;
     private int markedAffected;
     private String version;
-    private boolean requiresScheduleReload = false;
 
     public static ChangesDialog newInstance(
             @NonNull String version,
-            @NonNull ChangeStatistic statistic,
-            boolean requiresScheduleReload) {
+            @NonNull ChangeStatistic statistic) {
         ChangesDialog dialog = new ChangesDialog();
         Bundle args = new Bundle();
         args.putInt(BundleKeys.CHANGES_DLG_NUM_CHANGED, statistic.getChangedLecturesCount());
@@ -43,7 +41,6 @@ public class ChangesDialog extends DialogFragment {
         args.putInt(BundleKeys.CHANGES_DLG_NUM_CANCELLED, statistic.getCanceledLecturesCount());
         args.putInt(BundleKeys.CHANGES_DLG_NUM_MARKED, statistic.getChangedFavoritesCount());
         args.putString(BundleKeys.CHANGES_DLG_VERSION, version);
-        args.putBoolean(BundleKeys.REQUIRES_SCHEDULE_RELOAD, requiresScheduleReload);
         dialog.setArguments(args);
         dialog.setCancelable(false);
         return dialog;
@@ -59,7 +56,6 @@ public class ChangesDialog extends DialogFragment {
             cancelled = args.getInt(BundleKeys.CHANGES_DLG_NUM_CANCELLED);
             markedAffected = args.getInt(BundleKeys.CHANGES_DLG_NUM_MARKED);
             version = args.getString(BundleKeys.CHANGES_DLG_VERSION);
-            requiresScheduleReload = args.getBoolean(BundleKeys.REQUIRES_SCHEDULE_RELOAD);
         }
     }
 
@@ -99,7 +95,7 @@ public class ChangesDialog extends DialogFragment {
         flagChangesAsSeen();
         Activity activity = requireActivity();
         if (activity instanceof MainActivity) {
-            ((MainActivity) activity).openLectureChanges(requiresScheduleReload);
+            ((MainActivity) activity).openLectureChanges();
         }
     }
 

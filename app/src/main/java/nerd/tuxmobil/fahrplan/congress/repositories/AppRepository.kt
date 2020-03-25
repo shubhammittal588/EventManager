@@ -248,7 +248,7 @@ object AppRepository {
      * Loads all lectures from the database which take place on all days.
      * To exclude Engelsystem shifts pass false to [includeEngelsystemShifts].
      */
-    private fun loadLecturesForAllDays(includeEngelsystemShifts: Boolean) =
+    fun loadLecturesForAllDays(includeEngelsystemShifts: Boolean) =
             loadLecturesForDayIndex(ALL_DAYS, includeEngelsystemShifts)
 
     /**

@@ -211,7 +211,7 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
             position--;
             List<Lecture> starredLectures = observableStarredLectures.getValue();
             Lecture clicked = starredLectures.get(mAdapter.getItemIndex(position));
-            mListener.onLectureListClick(clicked, false);
+            mListener.onLectureListClick(clicked);
         }
     }
 

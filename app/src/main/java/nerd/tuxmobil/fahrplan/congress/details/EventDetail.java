@@ -22,20 +22,10 @@ import nerd.tuxmobil.fahrplan.congress.navigation.RoomForC3NavConverter;
 public class EventDetail extends BaseActivity {
 
     public static void startForResult(@NonNull Activity activity,
-                                      @NonNull Lecture lecture,
-                                      int lectureDay,
-                                      boolean requiresScheduleReload) {
+                                      @NonNull Lecture lecture) {
         Intent intent = new Intent(activity, EventDetail.class);
-        intent.putExtra(BundleKeys.EVENT_TITLE, lecture.title);
-        intent.putExtra(BundleKeys.EVENT_SUBTITLE, lecture.subtitle);
-        intent.putExtra(BundleKeys.EVENT_ABSTRACT, lecture.abstractt);
-        intent.putExtra(BundleKeys.EVENT_DESCRIPTION, lecture.description);
-        intent.putExtra(BundleKeys.EVENT_SPEAKERS, lecture.getFormattedSpeakers());
-        intent.putExtra(BundleKeys.EVENT_LINKS, lecture.links);
         intent.putExtra(BundleKeys.EVENT_ID, lecture.lectureId);
-        intent.putExtra(BundleKeys.EVENT_DAY, lectureDay);
         intent.putExtra(BundleKeys.EVENT_ROOM, lecture.room);
-        intent.putExtra(BundleKeys.REQUIRES_SCHEDULE_RELOAD, requiresScheduleReload);
         activity.startActivityForResult(intent, MyApp.EVENTVIEW);
     }
 
@@ -61,26 +51,10 @@ public class EventDetail extends BaseActivity {
         if (intent != null && findViewById(R.id.detail) != null) {
             EventDetailFragment eventDetailFragment = new EventDetailFragment();
             Bundle args = new Bundle();
-            args.putString(BundleKeys.EVENT_TITLE,
-                    intent.getStringExtra(BundleKeys.EVENT_TITLE));
-            args.putString(BundleKeys.EVENT_SUBTITLE,
-                    intent.getStringExtra(BundleKeys.EVENT_SUBTITLE));
-            args.putString(BundleKeys.EVENT_ABSTRACT,
-                    intent.getStringExtra(BundleKeys.EVENT_ABSTRACT));
-            args.putString(BundleKeys.EVENT_DESCRIPTION,
-                    intent.getStringExtra(BundleKeys.EVENT_DESCRIPTION));
-            args.putString(BundleKeys.EVENT_SPEAKERS,
-                    intent.getStringExtra(BundleKeys.EVENT_SPEAKERS));
-            args.putString(BundleKeys.EVENT_LINKS,
-                    intent.getStringExtra(BundleKeys.EVENT_LINKS));
             args.putString(BundleKeys.EVENT_ID,
                     intent.getStringExtra(BundleKeys.EVENT_ID));
-            args.putInt(BundleKeys.EVENT_DAY,
-                    intent.getIntExtra(BundleKeys.EVENT_DAY, 0));
             args.putString(BundleKeys.EVENT_ROOM,
                     intent.getStringExtra(BundleKeys.EVENT_ROOM));
-            args.putBoolean(BundleKeys.REQUIRES_SCHEDULE_RELOAD,
-                    intent.getBooleanExtra(BundleKeys.REQUIRES_SCHEDULE_RELOAD, false));
             eventDetailFragment.setArguments(args);
             replaceFragment(R.id.detail, eventDetailFragment,
                     EventDetailFragment.FRAGMENT_TAG);

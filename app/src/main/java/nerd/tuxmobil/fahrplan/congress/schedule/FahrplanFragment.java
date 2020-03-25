@@ -255,7 +255,7 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
             scrollTo(lecture);
             FrameLayout sidePane = activity.findViewById(R.id.detail);
             if (sidePane != null) {
-                ((MainActivity) activity).openLectureDetail(lecture, mDay, false);
+                ((MainActivity) activity).openLectureDetail(lecture);
             }
             intent.removeExtra("lecture_id");   // jump to given lectureId only once
         }
@@ -616,7 +616,7 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
         }
         MyApp.LogDebug(LOG_TAG, "Click on " + lecture.title);
         MainActivity mainActivity = (MainActivity) requireActivity();
-        mainActivity.openLectureDetail(lecture, mDay, false);
+        mainActivity.openLectureDetail(lecture);
     }
 
     public void buildNavigationMenu() {

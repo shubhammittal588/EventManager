@@ -83,7 +83,6 @@ public class MainActivity extends BaseActivity implements
     protected AppRepository appRepository;
 
     private ProgressBar progressBar = null;
-    private boolean requiresScheduleReload = false;
     private boolean shouldScrollToCurrent = true;
     private boolean showUpdateAction = true;
     private boolean isScreenLocked = false;
@@ -317,16 +316,11 @@ public class MainActivity extends BaseActivity implements
     void showChangesDialog() {
         Fragment fragment = findFragment(ChangesDialog.FRAGMENT_TAG);
         if (fragment == null) {
-            requiresScheduleReload = true;
             List<Lecture> changedLectures = appRepository.loadChangedLectures();
             Meta meta = appRepository.readMeta();
             String scheduleVersion = meta.getVersion();
             ChangeStatistic statistic = new ChangeStatistic(changedLectures);
-            DialogFragment changesDialog = ChangesDialog.newInstance(
-                    scheduleVersion,
-                    statistic,
-                    requiresScheduleReload
-            );
+            DialogFragment changesDialog = ChangesDialog.newInstance(scheduleVersion, statistic);
             changesDialog.show(getSupportFragmentManager(), ChangesDialog.FRAGMENT_TAG);
         }
     }
@@ -362,7 +356,7 @@ public class MainActivity extends BaseActivity implements
                 startActivityForResult(intent, MyApp.SETTINGS);
                 return true;
             case R.id.menu_item_schedule_changes:
-                openLectureChanges(requiresScheduleReload);
+                openLectureChanges();
                 return true;
             case R.id.menu_item_favorites:
                 openFavorites();
@@ -372,30 +366,22 @@ public class MainActivity extends BaseActivity implements
         return super.onOptionsItemSelected(item);
     }
 
-    public void openLectureDetail(@NonNull Lecture lecture, int mDay, boolean requiresScheduleReload) {
+    public void openLectureDetail(@NonNull Lecture lecture) {
         FrameLayout sidePane = findViewById(R.id.detail);
         MyApp.LogDebug(LOG_TAG, "openLectureDetail sidePane=" + sidePane);
         if (sidePane != null) {
             FragmentManager fm = getSupportFragmentManager();
             fm.popBackStack(EventDetailFragment.FRAGMENT_TAG, FragmentManager.POP_BACK_STACK_INCLUSIVE);
             Bundle args = new Bundle();
-            args.putString(BundleKeys.EVENT_TITLE, lecture.title);
-            args.putString(BundleKeys.EVENT_SUBTITLE, lecture.subtitle);
-            args.putString(BundleKeys.EVENT_ABSTRACT, lecture.abstractt);
-            args.putString(BundleKeys.EVENT_DESCRIPTION, lecture.description);
-            args.putString(BundleKeys.EVENT_SPEAKERS, lecture.getFormattedSpeakers());
-            args.putString(BundleKeys.EVENT_LINKS, lecture.links);
             args.putString(BundleKeys.EVENT_ID, lecture.lectureId);
-            args.putInt(BundleKeys.EVENT_DAY, mDay);
             args.putString(BundleKeys.EVENT_ROOM, lecture.room);
             args.putBoolean(BundleKeys.SIDEPANE, true);
-            args.putBoolean(BundleKeys.REQUIRES_SCHEDULE_RELOAD, requiresScheduleReload);
             EventDetailFragment eventDetailFragment = new EventDetailFragment();
             eventDetailFragment.setArguments(args);
             replaceFragment(R.id.detail, eventDetailFragment,
                     EventDetailFragment.FRAGMENT_TAG, EventDetailFragment.FRAGMENT_TAG);
         } else {
-            EventDetail.startForResult(this, lecture, mDay, requiresScheduleReload);
+            EventDetail.startForResult(this, lecture);
         }
     }
 
@@ -475,9 +461,9 @@ public class MainActivity extends BaseActivity implements
     }
 
     @Override
-    public void onLectureListClick(Lecture lecture, boolean requiresScheduleReload) {
+    public void onLectureListClick(Lecture lecture) {
         if (lecture != null) {
-            openLectureDetail(lecture, lecture.day, requiresScheduleReload);
+            openLectureDetail(lecture);
         }
     }
 
@@ -528,15 +514,14 @@ public class MainActivity extends BaseActivity implements
         }
     }
 
-    public void openLectureChanges(boolean requiresScheduleReload) {
+    public void openLectureChanges() {
         FrameLayout sidePane = findViewById(R.id.detail);
         if (sidePane == null) {
             Intent intent = new Intent(this, ChangeListActivity.class);
-            intent.putExtra(BundleKeys.REQUIRES_SCHEDULE_RELOAD, requiresScheduleReload);
             startActivityForResult(intent, MyApp.CHANGELOG);
         } else {
             sidePane.setVisibility(View.VISIBLE);
-            replaceFragment(R.id.detail, ChangeListFragment.newInstance(true, requiresScheduleReload),
+            replaceFragment(R.id.detail, ChangeListFragment.newInstance(true),
                     ChangeListFragment.FRAGMENT_TAG, ChangeListFragment.FRAGMENT_TAG);
         }
     }

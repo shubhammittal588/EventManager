@@ -41,8 +41,6 @@ public class ChangeListFragment extends AbstractListFragment {
     private OnLectureListClick mListener;
     private final ObservableType<List<Lecture>> observableChanges = new ObservableType<>();
     private boolean sidePane = false;
-    private boolean requiresScheduleReload = false;
-
 
     /**
      * The fragment's ListView/GridView.
@@ -55,11 +53,10 @@ public class ChangeListFragment extends AbstractListFragment {
      */
     private LectureChangesArrayAdapter mAdapter;
 
-    public static ChangeListFragment newInstance(boolean sidePane, boolean requiresScheduleReload) {
+    public static ChangeListFragment newInstance(boolean sidePane) {
         ChangeListFragment fragment = new ChangeListFragment();
         Bundle args = new Bundle();
         args.putBoolean(BundleKeys.SIDEPANE, sidePane);
-        args.putBoolean(BundleKeys.REQUIRES_SCHEDULE_RELOAD, requiresScheduleReload);
         fragment.setArguments(args);
         return fragment;
     }
@@ -78,7 +75,6 @@ public class ChangeListFragment extends AbstractListFragment {
         Bundle args = getArguments();
         if (args != null) {
             sidePane = args.getBoolean(BundleKeys.SIDEPANE);
-            requiresScheduleReload = args.getBoolean(BundleKeys.REQUIRES_SCHEDULE_RELOAD);
         }
 
         Context context = requireContext();
@@ -159,7 +155,7 @@ public class ChangeListFragment extends AbstractListFragment {
             int itemIndex = mAdapter.getItemIndex(position);
             Lecture clicked = changedLectures.get(itemIndex);
             if (clicked.changedIsCanceled) return;
-            mListener.onLectureListClick(clicked, requiresScheduleReload);
+            mListener.onLectureListClick(clicked);
         }
     }
 }

@@ -26,10 +26,8 @@ public abstract class AbstractListFragment extends ListFragment {
          * activity.
          *
          * @param lecture                The lecture which was clicked.
-         * @param requiresScheduleReload Boolean flag to indicate whether the schedule
-         *                               must be reload from the data source or not.
          */
-        void onLectureListClick(Lecture lecture, boolean requiresScheduleReload);
+        void onLectureListClick(Lecture lecture);
     }
 
     protected AppRepository appRepository;

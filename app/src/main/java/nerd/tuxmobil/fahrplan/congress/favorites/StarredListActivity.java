@@ -39,9 +39,9 @@ public class StarredListActivity extends BaseActivity implements
     }
 
     @Override
-    public void onLectureListClick(Lecture lecture, boolean requiresScheduleReload) {
+    public void onLectureListClick(Lecture lecture) {
         if (lecture != null) {
-            EventDetail.startForResult(this, lecture, lecture.day, requiresScheduleReload);
+            EventDetail.startForResult(this, lecture);
         }
     }
 

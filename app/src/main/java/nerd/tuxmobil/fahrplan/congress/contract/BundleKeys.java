@@ -13,32 +13,14 @@ public interface BundleKeys {
             "nerd.tuxmobil.fahrplan.congress.ALARM_START_TIME";
 
     // Event
-    String EVENT_TITLE =
-            "nerd.tuxmobil.fahrplan.congress.EVENT_TITLE";
-    String EVENT_SUBTITLE =
-            "nerd.tuxmobil.fahrplan.congress.EVENT_SUBTITLE";
-    String EVENT_ABSTRACT =
-            "nerd.tuxmobil.fahrplan.congress.EVENT_ABSTRACT";
-    String EVENT_DESCRIPTION =
-            "nerd.tuxmobil.fahrplan.congress.EVENT_DESCRIPTION";
-    String EVENT_SPEAKERS =
-            "nerd.tuxmobil.fahrplan.congress.EVENT_SPEAKERS";
-    String EVENT_LINKS =
-            "nerd.tuxmobil.fahrplan.congress.EVENT_LINKS";
     String EVENT_ID =
             "nerd.tuxmobil.fahrplan.congress.EVENT_ID";
-    String EVENT_DAY =
-            "nerd.tuxmobil.fahrplan.congress.EVENT_DAY";
     String EVENT_ROOM =
             "nerd.tuxmobil.fahrplan.congress.EVENT_ROOM";
 
     // Side pane
     String SIDEPANE =
             "nerd.tuxmobil.fahrplan.congress.SIDEPANE";
-
-    // Schedule reload
-    String REQUIRES_SCHEDULE_RELOAD =
-            "nerd.tuxmobil.fahrplan.congress.REQUIRES_SCHEDULE_RELOAD";
 
     // Changes dialog
     String CHANGES_DLG_NUM_CHANGED =
