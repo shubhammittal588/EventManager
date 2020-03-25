@@ -523,14 +523,6 @@ public class MainActivity extends BaseActivity implements
         }
     }
 
-    public void refreshFavoriteList() {
-        Fragment fragment = findFragment(StarredListFragment.FRAGMENT_TAG);
-        if (fragment != null) {
-            ((StarredListFragment) fragment).onRefresh();
-        }
-        invalidateOptionsMenu();
-    }
-
     private void openFavorites() {
         FrameLayout sidePane = findViewById(R.id.detail);
         if (sidePane == null) {

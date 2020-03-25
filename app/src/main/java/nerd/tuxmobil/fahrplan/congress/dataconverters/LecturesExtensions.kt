@@ -20,6 +20,8 @@ fun List<Lecture>.toDayIndices(): Set<Int> {
 
 fun List<Lecture>.toDateInfos() = map(Lecture::toDateInfo)
 
+fun List<Lecture>.toHighlightsDatabaseModel() = map(Lecture::toHighlightDatabaseModel)
+
 fun List<Lecture>.toLecturesDatabaseModel() = map(Lecture::toLectureDatabaseModel)
 
 fun List<Lecture>.toDayRanges(): List<DayRange> {

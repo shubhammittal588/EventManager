@@ -55,6 +55,8 @@ object AppRepository {
     private lateinit var engelsystemNetworkRepository: EngelsystemNetworkRepository
     private lateinit var sharedPreferencesRepository: SharedPreferencesRepository
 
+    private val onLecturesUpdateListeners = mutableSetOf<OnLecturesUpdateListener>()
+
     @JvmOverloads
     fun initialize(
             context: Context,
@@ -78,6 +80,7 @@ object AppRepository {
         this.scheduleNetworkRepository = scheduleNetworkRepository
         this.engelsystemNetworkRepository = engelsystemNetworkRepository
         this.sharedPreferencesRepository = sharedPreferencesRepository
+        notifyOnLecturesUpdateListeners()
     }
 
     private fun loadingFailed(@Suppress("SameParameterValue") requestIdentifier: String) {
@@ -311,10 +314,20 @@ object AppRepository {
         val highlightDatabaseModel = lecture.toHighlightDatabaseModel()
         val values = highlightDatabaseModel.toContentValues()
         highlightsDatabaseRepository.update(values, lecture.lectureId)
+        notifyOnLecturesUpdateListeners()
+    }
+
+    fun updateHighlights(lectures: List<Lecture>) {
+        val highlightsDatabaseModel = lectures.toHighlightsDatabaseModel()
+        val values = highlightsDatabaseModel.toContentValues()
+        val lectureIds = lectures.map { it.lectureId }
+        highlightsDatabaseRepository.update(values, lectureIds)
+        notifyOnLecturesUpdateListeners()
     }
 
     fun deleteAllHighlights() {
         highlightsDatabaseRepository.deleteAll()
+        notifyOnLecturesUpdateListeners()
     }
 
     fun readLectureByLectureId(lectureId: String): Lecture {
@@ -372,6 +385,7 @@ object AppRepository {
         val lecturesDatabaseModel = lectures.toLecturesDatabaseModel()
         val list = lecturesDatabaseModel.map { it.toContentValues() }
         lecturesDatabaseRepository.insert(list)
+        notifyOnLecturesUpdateListeners()
     }
 
     fun readMeta() =
@@ -428,5 +442,16 @@ object AppRepository {
 
     fun updateDisplayDayIndex(displayDayIndex: Int) =
             sharedPreferencesRepository.setDisplayDayIndex(displayDayIndex)
+
+    private fun notifyOnLecturesUpdateListeners() =
+            onLecturesUpdateListeners.forEach { it.onLecturesUpdate() }
+
+    fun addOnLecturesUpdateListener(listener: OnLecturesUpdateListener) {
+        onLecturesUpdateListeners.add(listener)
+    }
+
+    fun removeOnLecturesUpdateListener(listener: OnLecturesUpdateListener) {
+        onLecturesUpdateListeners.remove(listener)
+    }
 
 }

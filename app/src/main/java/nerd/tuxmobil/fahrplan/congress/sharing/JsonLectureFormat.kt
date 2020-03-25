@@ -17,9 +17,9 @@ object JsonLectureFormat {
     }
 
     @JvmStatic
-    fun format(lectures: List<Lecture>): String? {
+    fun format(lectures: List<Lecture>): String {
         return when {
-            lectures.isEmpty() -> null
+            lectures.isEmpty() -> ""
             lectures.size == 1 -> format(lectures[0])
             else -> {
                 val export = FavoritesExport(lectures.map { LectureExport(it) })

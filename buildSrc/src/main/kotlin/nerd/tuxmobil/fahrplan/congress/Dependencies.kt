@@ -32,6 +32,7 @@ object GradlePlugins {
 object Libs {
 
     private object Versions {
+        const val archTesting = "1.1.1"
         const val assertjAndroid = "1.2.0"
         const val constraintLayout = "1.1.3"
         const val emailIntentBuilder = "2.0.0"
@@ -40,6 +41,7 @@ object Libs {
         const val junit = "4.13"
         const val kotlinCoroutines = "1.1.1"
         const val kotlinCoroutinesRetrofit = "1.1.0"
+        const val liveData = "1.1.1"
         const val mockito = "3.3.0"
         const val mockitoKotlin = "2.2.0"
         const val moshi = "1.9.2"
@@ -53,6 +55,7 @@ object Libs {
         const val truth = "1.0.1"
     }
 
+    const val archTesting = "android.arch.core:core-testing:${Versions.archTesting}"
     const val assertjAndroid = "com.squareup.assertj:assertj-android:${Versions.assertjAndroid}"
     const val emailIntentBuilder = "de.cketti.mailto:email-intent-builder:${Versions.emailIntentBuilder}"
     const val engelsystem = "info.metadude.kotlin.library.engelsystem:engelsystem-base:${Versions.engelsystem}"
@@ -62,6 +65,7 @@ object Libs {
     const val kotlinCoroutinesCore = "org.jetbrains.kotlinx:kotlinx-coroutines-core:${Versions.kotlinCoroutines}"
     const val kotlinCoroutinesRetrofit = "ru.gildor.coroutines:kotlin-coroutines-retrofit:${Versions.kotlinCoroutinesRetrofit}"
     const val kotlinStdlib = "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
+    const val liveData = "android.arch.lifecycle:livedata:${Versions.liveData}"
     const val mockitoCore = "org.mockito:mockito-core:${Versions.mockito}"
     const val mockitoKotlin = "com.nhaarman.mockitokotlin2:mockito-kotlin:${Versions.mockitoKotlin}"
     const val moshi = "com.squareup.moshi:moshi:${Versions.moshi}"

@@ -1,7 +1,6 @@
 package nerd.tuxmobil.fahrplan.congress.sharing;
 
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 
 import java.util.List;
 
@@ -25,10 +24,10 @@ public class SimpleLectureFormat {
         return builder.toString();
     }
 
-    @Nullable
+    @NonNull
     public static String format(@NonNull List<Lecture> lectures) {
         if (lectures.isEmpty()) {
-            return null;
+            return "";
         }
         int lecturesSize = lectures.size();
         if (lecturesSize == 1) {

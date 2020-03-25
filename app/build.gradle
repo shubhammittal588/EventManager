@@ -153,6 +153,7 @@ dependencies {
     implementation Libs.kotlinCoroutinesAndroid
     implementation Libs.kotlinCoroutinesCore
     implementation Libs.kotlinStdlib
+    implementation Libs.liveData
     implementation Libs.supportLibraryAppcompatV7
     implementation Libs.supportLibraryConstraintLayout
     implementation Libs.supportLibraryDesign
@@ -165,6 +166,7 @@ dependencies {
     kapt Libs.moshiCodeGen
 
     testImplementation Libs.junit
+    testImplementation Libs.archTesting
     testImplementation Libs.assertjAndroid
     testImplementation Libs.supportLibraryAnnotations
     testImplementation Libs.mockitoCore

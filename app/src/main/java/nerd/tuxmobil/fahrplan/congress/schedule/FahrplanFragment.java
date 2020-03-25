@@ -745,7 +745,6 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
                 appRepository.updateHighlight(lecture);
                 lectureViewDrawer.setLectureBackground(lecture, contextMenuView);
                 LectureViewDrawer.setLectureTextColor(lecture, contextMenuView);
-                ((MainActivity) context).refreshFavoriteList();
                 updateMenuItems();
                 break;
             case CONTEXT_MENU_ITEM_ID_SET_ALARM:
