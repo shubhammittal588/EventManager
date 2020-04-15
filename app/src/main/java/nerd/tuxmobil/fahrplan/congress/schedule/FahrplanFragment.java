@@ -278,6 +278,14 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
         Log.d(getClass().getSimpleName(), "updateViews: lectures = " + lectures.size());
         viewDay(lectures);
         fillTimes();
+        for (Lecture lecture : lectures) {
+            setBell(lecture);
+            View lectureView = getLectureView(lecture);
+            if (lectureView != null) {
+                lectureViewDrawer.setLectureBackground(lecture, lectureView);
+                LectureViewDrawer.setLectureTextColor(lecture, lectureView);
+            }
+        }
     }
 
     private void viewDay(@NonNull List<Lecture> freshLectures) {
@@ -744,8 +752,6 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
             throw new NullPointerException("Lecture is null.");
         }
         FahrplanMisc.addAlarm(requireContext(), appRepository, lastSelectedLecture, alarmTimesIndex);
-        setBell(lastSelectedLecture);
-        updateMenuItems();
     }
 
     @Override
@@ -759,19 +765,17 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
         Context context = requireContext();
         switch (menuItemIndex) {
             case CONTEXT_MENU_ITEM_ID_FAVORITES:
-                lecture.highlight = !lecture.highlight;
-                appRepository.updateHighlight(lecture);
-                lectureViewDrawer.setLectureBackground(lecture, contextMenuView);
-                LectureViewDrawer.setLectureTextColor(lecture, contextMenuView);
-                updateMenuItems();
+                Lecture lectureCopy = new Lecture(lecture);
+                lectureCopy.highlight = !lecture.highlight;
+                appRepository.updateHighlight(lectureCopy);
+                lectureViewDrawer.setLectureBackground(lectureCopy, contextMenuView);
+                LectureViewDrawer.setLectureTextColor(lectureCopy, contextMenuView);
                 break;
             case CONTEXT_MENU_ITEM_ID_SET_ALARM:
                 showAlarmTimePicker();
                 break;
             case CONTEXT_MENU_ITEM_ID_DELETE_ALARM:
                 FahrplanMisc.deleteAlarm(context, appRepository, lecture);
-                setBell(lecture);
-                updateMenuItems();
                 break;
             case CONTEXT_MENU_ITEM_ID_ADD_TO_CALENDAR:
                 CalendarSharing.addToCalendar(lecture, context);
@@ -795,12 +799,6 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
 
         }
         return true;
-    }
-
-    private void updateMenuItems() {
-        // Toggles the icon for "add/delete favorite" or "add/delete alarm".
-        // Triggers EventDetailFragment.onPrepareOptionsMenu to be called
-        requireActivity().invalidateOptionsMenu();
     }
 
     public void onCreateContextMenu(ContextMenu menu, View view, ContextMenuInfo menuInfo) {

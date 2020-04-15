@@ -35,7 +35,6 @@ import nerd.tuxmobil.fahrplan.congress.commons.ObservableType;
 import nerd.tuxmobil.fahrplan.congress.contract.BundleKeys;
 import nerd.tuxmobil.fahrplan.congress.models.Lecture;
 import nerd.tuxmobil.fahrplan.congress.models.Meta;
-import nerd.tuxmobil.fahrplan.congress.schedule.MainActivity;
 import nerd.tuxmobil.fahrplan.congress.sharing.JsonLectureFormat;
 import nerd.tuxmobil.fahrplan.congress.sharing.LectureSharer;
 import nerd.tuxmobil.fahrplan.congress.sharing.SimpleLectureFormat;
@@ -176,6 +175,9 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
             return Unit.INSTANCE;
         });
         LiveDataExtensions.observeNonNullOrThrow(new StarredLecturesLiveData(), this, lectures -> {
+            // TODO List should be immutable to avoid manipulations within the fragment.
+            // If the list is modified and updated list from the database is not recognized as changed.
+            // This will prevent UI updates.
             observableStarredLectures.setValue(new ArrayList<>(lectures));
             return Unit.INSTANCE;
         });
@@ -285,23 +287,13 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
                 if (checkedItemPositions != null && checkedItemPositions.size() > 0) {
                     deleteSelectedItems(checkedItemPositions);
                 }
-                Activity activity = requireActivity();
-                activity.invalidateOptionsMenu();
-                refreshViews(activity);
+                mAdapter.notifyDataSetChanged();
+                requireActivity().setResult(Activity.RESULT_OK);
                 mode.finish();
                 return true;
             default:
                 return false;
         }
-    }
-
-    private void refreshViews(@NonNull Activity activity) {
-        if (activity instanceof MainActivity) {
-            ((MainActivity) activity).refreshEventMarkers();
-        }
-        mAdapter.notifyDataSetChanged();
-        activity.setResult(Activity.RESULT_OK);
-        activity.invalidateOptionsMenu();
     }
 
     @Override
@@ -329,13 +321,12 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
         appRepository.deleteAllHighlights();
         // TODO Remove once the FahrplanFragment is wired with the AppRepository.
         for (Lecture starredLecture : starredLectures) {
-            starredLecture.highlight = false;
-            appRepository.updateLecturesLegacy(starredLecture);
+            Lecture lectureCopy = new Lecture(starredLecture);
+            lectureCopy.highlight = false;
+            appRepository.updateLecturesLegacy(lectureCopy);
         }
-        starredLectures.clear();
-        Activity activity = requireActivity();
-        activity.invalidateOptionsMenu();
-        refreshViews(activity);
+        mAdapter.notifyDataSetChanged();
+        requireActivity().setResult(Activity.RESULT_OK);
     }
 
     private void deleteSelectedItems(@NonNull SparseBooleanArray checkedItemPositions) {
@@ -347,7 +338,7 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
         for (int id = mListView.getAdapter().getCount() - 1; id >= 0; id--) {
             if (checkedItemPositions.get(id)) {
                 int index = mAdapter.getItemIndex(id - 1);
-                Lecture zombieLecture = starredLectures.get(index);
+                Lecture zombieLecture = new Lecture(starredLectures.get(index));
                 zombieLecture.highlight = false;
                 zombies.add(zombieLecture);
             }

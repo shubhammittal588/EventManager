@@ -37,7 +37,6 @@ import nerd.tuxmobil.fahrplan.congress.contract.BundleKeys;
 import nerd.tuxmobil.fahrplan.congress.models.Lecture;
 import nerd.tuxmobil.fahrplan.congress.navigation.RoomForC3NavConverter;
 import nerd.tuxmobil.fahrplan.congress.repositories.AppRepository;
-import nerd.tuxmobil.fahrplan.congress.schedule.FahrplanFragment;
 import nerd.tuxmobil.fahrplan.congress.sharing.JsonLectureFormat;
 import nerd.tuxmobil.fahrplan.congress.sharing.LectureSharer;
 import nerd.tuxmobil.fahrplan.congress.sharing.SimpleLectureFormat;
@@ -275,6 +274,7 @@ public class EventDetailFragment extends Fragment {
         }
 
         activity.invalidateOptionsMenu();
+        activity.setResult(Activity.RESULT_OK);
     }
 
     private void setUpTextView(@NonNull TextView textView,
@@ -385,7 +385,6 @@ public class EventDetailFragment extends Fragment {
         Activity activity = requireActivity();
         Lecture lecture = observableLecture.getValue();
         FahrplanMisc.addAlarm(activity, appRepository, lecture, alarmTimesIndex);
-        refreshUI(activity);
     }
 
     @Override
@@ -416,24 +415,31 @@ public class EventDetailFragment extends Fragment {
             case R.id.menu_item_add_to_calendar:
                 CalendarSharing.addToCalendar(lecture, activity);
                 return true;
-            case R.id.menu_item_flag_as_favorite:
-                lecture.highlight = true;
-                appRepository.updateHighlight(lecture);
-                appRepository.updateLecturesLegacy(lecture);
-                refreshUI(activity);
+            case R.id.menu_item_flag_as_favorite: {
+                // Do not set lecture.highlight here because the
+                // deferred database update would be recognized as equal
+                // and prevent a UI update.
+                Lecture lectureCopy = new Lecture(lecture);
+                lectureCopy.highlight = true;
+                appRepository.updateHighlight(lectureCopy);
+                appRepository.updateLecturesLegacy(lectureCopy);
                 return true;
-            case R.id.menu_item_unflag_as_favorite:
-                lecture.highlight = false;
-                appRepository.updateHighlight(lecture);
-                appRepository.updateLecturesLegacy(lecture);
-                refreshUI(activity);
+            }
+            case R.id.menu_item_unflag_as_favorite: {
+                // Do not set lecture.highlight here because the
+                // deferred database update would be recognized as equal
+                // and prevent a UI update.
+                Lecture lectureCopy = new Lecture(lecture);
+                lectureCopy.highlight = false;
+                appRepository.updateHighlight(lectureCopy);
+                appRepository.updateLecturesLegacy(lectureCopy);
                 return true;
+            }
             case R.id.menu_item_set_alarm:
                 showAlarmTimePicker();
                 return true;
             case R.id.menu_item_delete_alarm:
                 FahrplanMisc.deleteAlarm(activity, appRepository, lecture);
-                refreshUI(activity);
                 return true;
             case R.id.menu_item_close_event_details:
                 closeFragment(activity, FRAGMENT_TAG);
@@ -446,15 +452,6 @@ public class EventDetailFragment extends Fragment {
 
         }
         return super.onOptionsItemSelected(item);
-    }
-
-    // TODO Remove once FahrplanFragment observes AppRepository lecture data.
-    private void refreshUI(@NonNull Activity activity) {
-        activity.invalidateOptionsMenu();
-        activity.setResult(Activity.RESULT_OK);
-        if (activity instanceof FahrplanFragment.OnRefreshEventMarkers) {
-            ((FahrplanFragment.OnRefreshEventMarkers) activity).refreshEventMarkers();
-        }
     }
 
     private void closeFragment(@NonNull Activity activity, @NonNull String fragmentTag) {

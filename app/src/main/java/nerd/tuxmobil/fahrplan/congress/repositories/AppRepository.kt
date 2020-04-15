@@ -21,6 +21,7 @@ import nerd.tuxmobil.fahrplan.congress.BuildConfig
 import nerd.tuxmobil.fahrplan.congress.MyApp
 import nerd.tuxmobil.fahrplan.congress.dataconverters.*
 import nerd.tuxmobil.fahrplan.congress.exceptions.AppExceptionHandler
+import nerd.tuxmobil.fahrplan.congress.exceptions.ExceptionHandling
 import nerd.tuxmobil.fahrplan.congress.models.Alarm
 import nerd.tuxmobil.fahrplan.congress.models.Lecture
 import nerd.tuxmobil.fahrplan.congress.models.Meta
@@ -44,6 +45,7 @@ object AppRepository {
     private lateinit var logging: Logging
 
     private val parentJobs = mutableMapOf<String, Job>()
+    private lateinit var databaseScope: DatabaseScope
     private lateinit var networkScope: NetworkScope
 
     private lateinit var alarmsDatabaseRepository: AlarmsDatabaseRepository
@@ -61,7 +63,9 @@ object AppRepository {
     fun initialize(
             context: Context,
             logging: Logging,
-            networkScope: NetworkScope = NetworkScope.of(AppExecutionContext, AppExceptionHandler(logging)),
+            exceptionHandling: ExceptionHandling = AppExceptionHandler(logging),
+            databaseScope: DatabaseScope = DatabaseScope.of(AppExecutionContext, exceptionHandling),
+            networkScope: NetworkScope = NetworkScope.of(AppExecutionContext, exceptionHandling),
             alarmsDatabaseRepository: AlarmsDatabaseRepository = AlarmsDatabaseRepository(AlarmsDBOpenHelper(context)),
             highlightsDatabaseRepository: HighlightsDatabaseRepository = HighlightsDatabaseRepository(HighlightDBOpenHelper(context)),
             lecturesDatabaseRepository: LecturesDatabaseRepository = LecturesDatabaseRepository(LecturesDBOpenHelper(context), logging),
@@ -72,6 +76,7 @@ object AppRepository {
     ) {
         this.context = context
         this.logging = logging
+        this.databaseScope = databaseScope
         this.networkScope = networkScope
         this.alarmsDatabaseRepository = alarmsDatabaseRepository
         this.highlightsDatabaseRepository = highlightsDatabaseRepository
@@ -298,36 +303,74 @@ object AppRepository {
     fun deleteAlarmForAlarmId(alarmId: Int) =
             alarmsDatabaseRepository.deleteForAlarmId(alarmId)
 
-    fun deleteAlarmForEventId(eventId: String) =
+    fun deleteAlarmForEventId(eventId: String) {
+        val jobName = "deleteAlarmForEventId lecture${eventId}"
+        parentJobs[jobName] = databaseScope.launchNamed(jobName) {
+            logging.d(javaClass.simpleName, "Updating ($jobName) database ...")
             alarmsDatabaseRepository.deleteForEventId(eventId)
+            databaseScope.withUiContext {
+                logging.d(javaClass.simpleName, "Notifying that ($jobName) is done.")
+                notifyOnLecturesUpdateListeners()
+            }
+        }
+    }
 
     fun updateAlarm(alarm: Alarm) {
-        val alarmDatabaseModel = alarm.toAlarmDatabaseModel()
-        val values = alarmDatabaseModel.toContentValues()
-        alarmsDatabaseRepository.update(values, alarm.eventId)
+        val jobName = "updateAlarm lecture${alarm.eventId}"
+        parentJobs[jobName] = databaseScope.launchNamed(jobName) {
+            logging.d(javaClass.simpleName, "Updating ($jobName) database ...")
+            val alarmDatabaseModel = alarm.toAlarmDatabaseModel()
+            val values = alarmDatabaseModel.toContentValues()
+            alarmsDatabaseRepository.update(values, alarm.eventId)
+            databaseScope.withUiContext {
+                logging.d(javaClass.simpleName, "Notifying that ($jobName) is done.")
+                notifyOnLecturesUpdateListeners()
+            }
+        }
     }
 
     private fun readHighlights() =
             highlightsDatabaseRepository.query().toHighlightsAppModel()
 
     fun updateHighlight(lecture: Lecture) {
-        val highlightDatabaseModel = lecture.toHighlightDatabaseModel()
-        val values = highlightDatabaseModel.toContentValues()
-        highlightsDatabaseRepository.update(values, lecture.lectureId)
-        notifyOnLecturesUpdateListeners()
+        val jobName = "updateHighlight lecture${lecture.lectureId} highlight=${lecture.highlight}"
+        parentJobs[jobName] = databaseScope.launchNamed(jobName) {
+            logging.d(javaClass.simpleName, "Updating ($jobName) database ...")
+            val highlightDatabaseModel = lecture.toHighlightDatabaseModel()
+            val values = highlightDatabaseModel.toContentValues()
+            highlightsDatabaseRepository.update(values, lecture.lectureId)
+            databaseScope.withUiContext {
+                logging.d(javaClass.simpleName, "Notifying that ($jobName) is done.")
+                notifyOnLecturesUpdateListeners()
+            }
+        }
     }
 
     fun updateHighlights(lectures: List<Lecture>) {
-        val highlightsDatabaseModel = lectures.toHighlightsDatabaseModel()
-        val values = highlightsDatabaseModel.toContentValues()
-        val lectureIds = lectures.map { it.lectureId }
-        highlightsDatabaseRepository.update(values, lectureIds)
-        notifyOnLecturesUpdateListeners()
+        val jobName = "updateHighlights (${lectures.size})"
+        parentJobs[jobName] = databaseScope.launchNamed(jobName) {
+            logging.d(javaClass.simpleName, "Updating ($jobName) database ...")
+            val highlightsDatabaseModel = lectures.toHighlightsDatabaseModel()
+            val values = highlightsDatabaseModel.toContentValues()
+            val lectureIds = lectures.map { it.lectureId }
+            highlightsDatabaseRepository.update(values, lectureIds)
+            databaseScope.withUiContext {
+                logging.d(javaClass.simpleName, "Notifying that ($jobName) is done.")
+                notifyOnLecturesUpdateListeners()
+            }
+        }
     }
 
     fun deleteAllHighlights() {
-        highlightsDatabaseRepository.deleteAll()
-        notifyOnLecturesUpdateListeners()
+        val jobName = "deleteAllHighlights"
+        parentJobs[jobName] = databaseScope.launchNamed(jobName) {
+            logging.d(javaClass.simpleName, "Updating ($jobName) database ...")
+            highlightsDatabaseRepository.deleteAll()
+            databaseScope.withUiContext {
+                logging.d(javaClass.simpleName, "Notifying that ($jobName) is done.")
+                notifyOnLecturesUpdateListeners()
+            }
+        }
     }
 
     fun readLectureByLectureId(lectureId: String): Lecture {

@@ -61,7 +61,6 @@ public class FahrplanMisc {
             new AlarmServices(alarmManager).discardEventAlarm(context, schedulableAlarm);
             appRepository.deleteAlarmForEventId(eventId);
         }
-        lecture.hasAlarm = false;
     }
 
     public static void addAlarm(@NonNull Context context,
@@ -107,7 +106,6 @@ public class FahrplanMisc {
         AlarmManager alarmManager = Contexts.getAlarmManager(context);
         new AlarmServices(alarmManager).scheduleEventAlarm(context, schedulableAlarm, true);
         appRepository.updateAlarm(alarm);
-        lecture.hasAlarm = true;
     }
 
     public static long setUpdateAlarm(Context context, boolean initial) {

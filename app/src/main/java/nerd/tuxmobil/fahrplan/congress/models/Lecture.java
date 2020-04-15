@@ -97,6 +97,47 @@ public class Lecture {
         changedIsCanceled = false;
     }
 
+    public Lecture(@NonNull Lecture other) {
+        this.title = other.title;
+        this.subtitle = other.subtitle;
+        this.url = other.url;
+        this.day = other.day;
+        this.date = other.date;
+        this.dateUTC = other.dateUTC;
+        this.startTime = other.startTime;
+        this.relStartTime = other.relStartTime;
+        this.duration = other.duration;
+        this.room = other.room;
+        this.roomIndex = other.roomIndex;
+        this.speakers = other.speakers;
+        this.track = other.track;
+        this.lectureId = other.lectureId;
+        this.type = other.type;
+        this.lang = other.lang;
+        this.slug = other.slug;
+        this.abstractt = other.abstractt;
+        this.description = other.description;
+        this.links = other.links;
+        this.highlight = other.highlight;
+        this.hasAlarm = other.hasAlarm;
+        this.recordingLicense = other.recordingLicense;
+        this.recordingOptOut = other.recordingOptOut;
+
+        this.changedTitle = other.changedTitle;
+        this.changedSubtitle = other.changedSubtitle;
+        this.changedRoom = other.changedRoom;
+        this.changedDay = other.changedDay;
+        this.changedTime = other.changedTime;
+        this.changedDuration = other.changedDuration;
+        this.changedSpeakers = other.changedSpeakers;
+        this.changedRecordingOptOut = other.changedRecordingOptOut;
+        this.changedLanguage = other.changedLanguage;
+        this.changedTrack = other.changedTrack;
+
+        this.changedIsNew = other.changedIsNew;
+        this.changedIsCanceled = other.changedIsCanceled;
+    }
+
     @NonNull
     public String getLinks() {
         return links == null ? "" : links;
