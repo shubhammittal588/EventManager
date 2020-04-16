@@ -768,8 +768,6 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
                 Lecture lectureCopy = new Lecture(lecture);
                 lectureCopy.highlight = !lecture.highlight;
                 appRepository.updateHighlight(lectureCopy);
-                lectureViewDrawer.setLectureBackground(lectureCopy, contextMenuView);
-                LectureViewDrawer.setLectureTextColor(lectureCopy, contextMenuView);
                 break;
             case CONTEXT_MENU_ITEM_ID_SET_ALARM:
                 showAlarmTimePicker();
