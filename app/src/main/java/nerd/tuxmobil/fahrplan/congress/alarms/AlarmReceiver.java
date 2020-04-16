@@ -69,7 +69,6 @@ public final class AlarmReceiver extends BroadcastReceiver {
 
             if (MainActivity.getInstance() != null) {
                 MainActivity.getInstance().reloadAlarms();
-                MainActivity.getInstance().refreshEventMarkers();
             }
         } else if (intent.getAction().equals(ALARM_UPDATE)) {
             UpdateService.start(context);
