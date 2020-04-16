@@ -834,6 +834,7 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
         return parent.findViewWithTag(lecture);
     }
 
+    // TODO Check if this became unused in this commit.
     public void refreshViews() {
         if (MyApp.lectureList == null) {
             return;
@@ -848,6 +849,7 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
         }
     }
 
+    // TODO Check if this became unused in this commit.
     public void refreshEventMarkers() {
         MyApp.LogDebug(LOG_TAG, "Reload alarms");
         refreshViews();

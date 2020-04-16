@@ -404,6 +404,7 @@ public class MainActivity extends BaseActivity implements
         }
     }
 
+    // TODO Check if this became unused in this commit.
     @Override
     public void refreshEventMarkers() {
         Fragment fragment = findFragment(FahrplanFragment.FRAGMENT_TAG);
@@ -426,6 +427,7 @@ public class MainActivity extends BaseActivity implements
             case MyApp.CHANGELOG:
             case MyApp.STARRED:
                 if (resultCode == Activity.RESULT_OK) {
+                    // TODO Check if this became unused in this commit.
                     refreshEventMarkers();
                 }
                 break;

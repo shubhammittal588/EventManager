@@ -1,6 +1,5 @@
 package nerd.tuxmobil.fahrplan.congress.favorites;
 
-import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -288,7 +287,6 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
                     deleteSelectedItems(checkedItemPositions);
                 }
                 mAdapter.notifyDataSetChanged();
-                requireActivity().setResult(Activity.RESULT_OK);
                 mode.finish();
                 return true;
             default:
@@ -326,7 +324,6 @@ public class StarredListFragment extends AbstractListFragment implements AbsList
             appRepository.updateLecturesLegacy(lectureCopy);
         }
         mAdapter.notifyDataSetChanged();
-        requireActivity().setResult(Activity.RESULT_OK);
     }
 
     private void deleteSelectedItems(@NonNull SparseBooleanArray checkedItemPositions) {
