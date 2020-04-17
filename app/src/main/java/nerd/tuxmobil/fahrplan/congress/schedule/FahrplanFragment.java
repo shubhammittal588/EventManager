@@ -262,7 +262,8 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
         }
 
         if (lectureId != null) {
-            Lecture lecture = single(MyApp.lectureList, currentLecture -> lectureId.equals(currentLecture.lectureId));
+            List<Lecture> lectures = observableLectures.getValue();
+            Lecture lecture = single(lectures, currentLecture -> lectureId.equals(currentLecture.lectureId));
             scrollTo(lecture);
             FrameLayout sidePane = activity.findViewById(R.id.detail);
             if (sidePane != null) {
