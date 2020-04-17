@@ -298,7 +298,13 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
             horizontalScroller.scrollTo(0, 0);
         }
 
-        loadLectureList(Logging.Companion.get(), freshLectures, mDay);
+        List<Lecture> lectures = MyApp.lectureList;
+        if (lectures != null && !lectures.isEmpty()) {
+            conference.calculateTimeFrame(lectures, dateUTC -> new Moment(dateUTC).getMinuteOfDay());
+            MyApp.LogDebug(LOG_TAG, "Conference = " + conference);
+        }
+
+        loadLectureList(Logging.Companion.get(), freshLectures);
         List<Lecture> lecturesOfDay = MyApp.lectureList;
 
         if (lecturesOfDay != null) {
@@ -435,7 +441,7 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
         if (lectureId != null) {
             return;
         }
-        if (MyApp.lectureListDay != MyApp.dateInfos.getIndexOfToday()) {
+        if (day != MyApp.dateInfos.getIndexOfToday()) {
             return;
         }
         Moment nowMoment = new Moment();
@@ -459,7 +465,7 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
         int scrollAmount = 0;
 
         if (!(nowMoment.getMinuteOfDay() < conference.getFirstEventStartsAt() &&
-                MyApp.dateInfos.sameDay(nowMoment, MyApp.lectureListDay))) {
+                MyApp.dateInfos.sameDay(nowMoment, day))) {
 
             TimeSegment timeSegment;
             while (time < conference.getLastEventEndsAt()) {
@@ -596,14 +602,14 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
         return padding;
     }
 
-    public static void loadLectureList(@NonNull Logging logging, @NonNull List<Lecture> lectures, int day) {
-        logging.d(LOG_TAG, "load lectures of day " + day);
-
-        if (MyApp.lectureList != null && MyApp.lectureListDay == day) {
+    public static void loadLectureList(@NonNull Logging logging, @NonNull List<Lecture> lectures) {
+        logging.d(LOG_TAG, "load lectures");
+        MyApp.lectureList = lectures;
+        if (MyApp.lectureList.isEmpty()) {
             return;
         }
 
-        LegacyLectureData legacyLectureData = lectureListTransformer.legacyTransformLectureList(day, lectures);
+        LegacyLectureData legacyLectureData = lectureListTransformer.legacyTransformLectureList(lectures);
 
         MyApp.lectureList = legacyLectureData.getLectureList();
         // FIXME: remove this?
@@ -611,7 +617,6 @@ public class FahrplanFragment extends Fragment implements LectureViewEventsHandl
             return;
         }
 
-        MyApp.lectureListDay = legacyLectureData.getLectureListDay();
         MyApp.roomsMap.clear();
         MyApp.roomsMap.putAll(legacyLectureData.getRoomsMap());
         MyApp.roomList = legacyLectureData.getRoomList();

@@ -12,8 +12,8 @@ class LectureListTransformer(private val prioritizedRoomProvider: PrioritizedRoo
      * UI code.
      * Then transform it to the (legacy) data structure that the UI is currently using.
      */
-    fun legacyTransformLectureList(dayIndex: Int, lectures: List<Lecture>): LegacyLectureData {
-        val scheduleData = transformLectureList(dayIndex, lectures)
+    fun legacyTransformLectureList(lectures: List<Lecture>): LegacyLectureData {
+        val scheduleData = transformLectureList(lectures)
 
         // Set Lecture.roomIndex to match the index in ScheduleData.roomDataList
         scheduleData.roomDataList.forEachIndexed { index, roomData ->
@@ -35,7 +35,6 @@ class LectureListTransformer(private val prioritizedRoomProvider: PrioritizedRoo
         }
 
         return LegacyLectureData(
-                lectureListDay = dayIndex,
                 lectureList = lectures.sortedBy { it.dateUTC },
                 roomsMap = roomsMap,
                 roomList = roomList,
@@ -45,14 +44,14 @@ class LectureListTransformer(private val prioritizedRoomProvider: PrioritizedRoo
     }
 
     /**
-     * Transforms the given [lectures] for the given [dayIndex] into a [ScheduleData] object.
+     * Transforms the given [lectures] into a [ScheduleData] object.
      *
-     * Apart from the [dayIndex] it contains a list of room names and their associated lectures
-     * (sorted by [Lecture.dateUTC]). Rooms names are added in a defined order: room names of
-     * prioritized rooms first, then all other room names in the order defined by the given lecture.
+     * It contains a list of room names and their associated lectures (sorted by [Lecture.dateUTC]).
+     * Rooms names are added in a defined order: room names of prioritized rooms first, then all
+     * other room names in the order defined by the given lecture.
      * After adding room names the original order [Lecture.roomIndex] is no longer of interest.
      */
-    fun transformLectureList(dayIndex: Int, lectures: List<Lecture>): ScheduleData {
+    fun transformLectureList(lectures: List<Lecture>): ScheduleData {
         // Pre-populate the map with prioritized rooms
         val roomMap = prioritizedRoomProvider.prioritizedRooms
                 .map { it to mutableListOf<Lecture>() }
@@ -77,7 +76,7 @@ class LectureListTransformer(private val prioritizedRoomProvider: PrioritizedRoo
             }
         }
 
-        return ScheduleData(dayIndex, roomDataList)
+        return ScheduleData(roomDataList)
     }
 
 }
@@ -88,7 +87,6 @@ interface PrioritizedRoomProvider {
 
 @Deprecated("Use ScheduleData instead")
 data class LegacyLectureData(
-        val lectureListDay: Int,
         val lectureList: List<Lecture>,
         val roomsMap: Map<String, Int>,
         val roomList: SparseArrayCompat<Int>,

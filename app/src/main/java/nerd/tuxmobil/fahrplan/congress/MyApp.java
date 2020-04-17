@@ -73,8 +73,6 @@ public class MyApp extends Application {
 
     public static TASKS task_running = TASKS.NONE;
 
-    public static int lectureListDay = 0;
-
     @Override
     public void onCreate() {
         super.onCreate();
